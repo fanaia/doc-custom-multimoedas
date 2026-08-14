@@ -32,6 +32,35 @@ defineRoutes("/api/doc-custom", (router) => {
     res.status(200).json(result);
   });
 
+  router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const [bases, imagens, templates, documentos] = await Promise.all([
+      Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
+      Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
+      Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
+      Model("ArtefatoPdf").find({ tenantId }).sort({ geradoEm: -1 }).limit(100).lean(),
+    ]);
+    res.json({ bases, imagens, templates, documentos });
+  });
+  router.private.post("/bases", { permission: "bases.manage", audit: { entidade: "BaseOmie", acao: "base-configurada" } }, async (req, res) => {
+    const input = req.body || {};
+    const base = await Model("BaseOmie").create({
+      tenantId: req.accessContext.tenantId,
+      codigo: String(input.codigo || "").trim(),
+      nome: String(input.nome || "").trim(),
+      cnpj: String(input.cnpj || "").replace(/\D/g, ""),
+      ambiente: input.ambiente === "homologacao" ? "homologacao" : "producao",
+      status: input.status === "inativo" ? "inativo" : "ativo",
+    });
+    try {
+      const configured = await configureCredentials(base._id, req.accessContext, input);
+      res.status(201).json({ base: configured });
+    } catch (error) {
+      await Model("BaseOmie").deleteOne({ _id: base._id, tenantId: req.accessContext.tenantId });
+      throw error;
+    }
+  });
+
   router.private.put("/bases/:id/credenciais", { permission: "bases.manage", audit: { entidade: "BaseOmie", acao: "credenciais-alteradas" } }, async (req, res) => {
     const base = await configureCredentials(req.params.id, req.accessContext, req.body || {});
     res.json({ base });
@@ -132,6 +161,39 @@ defineRoutes("/api/doc-custom", (router) => {
 
   router.private.post("/gatilhos/:id/preview", { permission: "templates.manage", audit: { entidade: "Template", acao: "preview" } }, async (req, res) => {
     res.json(await workflow.previewTrigger(req.params.id, req.accessContext, req.body || {}));
+  });
+  router.private.post("/templates/:id/preview", { permission: "templates.manage", audit: { entidade: "Template", acao: "preview" } }, async (req, res) => {
+    res.json(await workflow.previewTemplate(req.params.id, req.accessContext, req.body || {}));
+  });
+
+  router.private.post("/imagens/upload", { permission: "templates.manage", audit: { entidade: "Imagem", acao: "upload" } }, async (req, res) => {
+    const input = req.body || {};
+    const contentType = String(input.contentType || "").toLowerCase();
+    const allowed = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+    if (!allowed.has(contentType)) throw new GenericError("Formato de imagem nao suportado.", { statusCode: 422 });
+    const conteudo = String(input.conteudo || "").replace(/^data:[^;]+;base64,/, "");
+    const tamanho = Buffer.byteLength(conteudo, "base64");
+    if (!conteudo || tamanho < 1 || tamanho > 5 * 1024 * 1024) {
+      throw new GenericError("A imagem deve ter no maximo 5 MB.", { statusCode: 422 });
+    }
+    const image = await Model("Imagem").create({
+      tenantId: req.accessContext.tenantId,
+      codigo: String(input.codigo || "").trim(),
+      descricao: String(input.descricao || input.nomeArquivo || "").trim(),
+      nomeArquivo: String(input.nomeArquivo || "imagem").trim(),
+      contentType,
+      tamanho,
+      conteudo,
+      status: input.status === "inativo" ? "inativo" : "ativo",
+    });
+    res.status(201).json({ imagem: image });
+  });
+  router.private.get("/imagens/:id/conteudo", { permission: "templates.read" }, async (req, res) => {
+    const image = await Model("Imagem").findOne({ _id: req.params.id, tenantId: req.accessContext.tenantId }).select("+conteudo");
+    if (!image) throw new GenericError("Imagem nao encontrada.", { statusCode: 404 });
+    res.setHeader("content-type", image.contentType);
+    res.setHeader("content-length", String(image.tamanho));
+    res.send(Buffer.from(image.conteudo, "base64"));
   });
   router.private.post("/templates/obrigatorio/importar", { permission: "templates.manage", audit: { entidade: "Template", acao: "template-obrigatorio-importado" } }, async (req, res) => {
     const result = await importMandatoryTemplate(req.accessContext);

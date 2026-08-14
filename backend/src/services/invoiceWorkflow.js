@@ -449,6 +449,32 @@ async function previewTrigger(triggerId, accessContext, input, adapters = {}) {
   return { html, subject, body, pdfBase64: pdf.toString("base64"), variables: sanitize(variables) };
 }
 
+async function previewTemplate(templateId, accessContext, input, adapters = {}) {
+  const template = await Model("Template").findOne({
+    _id: templateId,
+    tenantId: accessContext.tenantId,
+    status: "ativo",
+  });
+  if (!template) throw new GenericError("Template ativo nao encontrado.", { statusCode: 404 });
+  const base = await findScopedBase(input.baseOmieId, accessContext, { secrets: true });
+  const variables = await (adapters.buildVariables || buildVariables)({
+    tenantId: accessContext.tenantId,
+    base,
+    codigoOs: input.codigoOs,
+    numeroOs: input.numeroOs,
+    accessContext,
+    adapters,
+  });
+  const rendered = renderTemplate(template.conteudo, variables, adapters.templateOptions);
+  const result = { rendered, variables: sanitize(variables), tipo: template.tipo };
+  if (template.tipo === "documento") {
+    const pdf = await (adapters.renderPdf || renderPdf)(rendered, adapters);
+    result.html = rendered;
+    result.pdfBase64 = pdf.toString("base64");
+  }
+  return result;
+}
+
 module.exports = {
   approveInvoice,
   approveProcessing,
@@ -458,6 +484,7 @@ module.exports = {
   internalAccess,
   loadProcess,
   previewTrigger,
+  previewTemplate,
   reject,
   reprocess,
   retry,

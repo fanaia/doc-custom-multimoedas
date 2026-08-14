@@ -9,12 +9,13 @@ defineTenantModel({
   schema: {
     codigo: fields.string({ required: true, label: "Codigo", searchable: true }),
     descricao: fields.string({ required: true, label: "Descricao", searchable: true }),
+    nomeArquivo: fields.string({ required: true, label: "Arquivo" }),
     contentType: fields.enum(["image/png", "image/jpeg", "image/gif", "image/webp"], {
       required: true,
       label: "MIME type",
     }),
-    tamanho: fields.number({ required: true, label: "Tamanho (bytes)" }),
-    conteudo: fields.string({ required: true, label: "Conteudo Base64", searchable: false }),
+    tamanho: { ...fields.number({ required: true, label: "Tamanho (bytes)" }), readonly: true },
+    conteudo: { type: String, required: true, select: false },
     status: businessStatus(),
   },
   crud: {
