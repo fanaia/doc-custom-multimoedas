@@ -51,14 +51,15 @@ defineRoutes("/api/doc-custom", (router) => {
 
   router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
-    const [bases, imagens, templates, documentos, configuracoes] = await Promise.all([
+    const [bases, imagens, templates, documentos, configuracoes, etapas] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
       Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
       Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
       Model("ArtefatoPdf").find({ tenantId }).sort({ geradoEm: -1 }).limit(100).lean(),
       Model("Configuracao").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
+      Model("EtapaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
     ]);
-    res.json({ bases, imagens, templates, documentos, configuracoes });
+    res.json({ bases, imagens, templates, documentos, configuracoes, etapas });
   });
   router.private.post("/bases", { permission: "bases.manage", audit: { entidade: "BaseOmie", acao: "base-configurada" } }, async (req, res) => {
     const input = req.body || {};

@@ -59,14 +59,16 @@ async function consultarPais(base, accessContext, codigoPais, options) {
   return data?.lista_paises?.[0]?.cDescricao || "";
 }
 
-async function listarEtapas(base, accessContext, options) {
-  const data = await call(base, accessContext, "produtos/etapafat/", "ListarEtapasFaturamento", {
-    pagina: 1,
-    registros_por_pagina: 900,
-  }, options);
+function normalizeOperationDescription(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function parseServiceStages(data) {
   const map = new Map();
-  for (const operation of data?.etapas || []) {
-    if (operation?.cDescOperacao !== "Venda de Serviço") continue;
+  for (const operation of data?.cadastros || data?.etapas || []) {
+    const isServiceSale = String(operation?.cCodOperacao || "") === "01"
+      || normalizeOperationDescription(operation?.cDescOperacao).includes("venda de servico");
+    if (!isServiceSale) continue;
     for (const stage of operation.etapas || []) {
       if (stage?.cInativo === "S" || !stage?.cCodigo) continue;
       const description = stage.cDescricao || stage.cDescrPadrao || stage.cCodigo;
@@ -75,6 +77,14 @@ async function listarEtapas(base, accessContext, options) {
     }
   }
   return [...map.entries()].map(([codigo, descricao]) => ({ codigo, descricao }));
+}
+
+async function listarEtapas(base, accessContext, options) {
+  const data = await call(base, accessContext, "produtos/etapafat/", "ListarEtapasFaturamento", {
+    pagina: 1,
+    registros_por_pagina: 900,
+  }, options);
+  return parseServiceStages(data);
 }
 
 async function listarCategorias(base, accessContext, options) {
@@ -172,5 +182,6 @@ module.exports = {
   listarContasCorrentes,
   listarEtapas,
   obterAnexo,
+  parseServiceStages,
   testConnection,
 };

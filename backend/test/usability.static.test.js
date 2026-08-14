@@ -31,9 +31,11 @@ test("tickets de integracao Omie estao registrados", () => {
 
 test("bases sincronizam etapas categorias e contas correntes por tenant", () => {
   const routes = read("src/routes/docCustom.js");
+  const gateway = read("src/services/integrations/omieGateway.js");
   assert.match(routes, /categorias\/sincronizar/);
   assert.match(routes, /contas-correntes\/sincronizar/);
   assert.match(routes, /tenantId: accessContext\.tenantId/);
+  assert.match(gateway, /data\?\.cadastros/);
 });
 
 test("templates imagens e configuracoes possuem manutencao operacional", () => {
