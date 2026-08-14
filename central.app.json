@@ -5,11 +5,11 @@
   "name": "Doc Custom Multimoedas",
   "slug": "doc-custom-multimoedas",
   "appKind": "member-central",
-  "tenancyModel": "single_tenant",
+  "tenancyModel": "multi_tenant",
   "availability": "licensed",
   "accessMode": "explicit_users",
   "authorizationMode": "rbac",
-  "deploymentMode": "dedicated",
+  "deploymentMode": "shared",
   "modules": {
     "collections": true,
     "documents": false,
