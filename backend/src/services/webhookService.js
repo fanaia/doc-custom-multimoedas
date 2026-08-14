@@ -2,7 +2,7 @@
 
 const { GenericError, registry } = require("@oondemand/oon-core-back");
 const { resolveBaseByWebhookToken } = require("./baseCredentials");
-const { decrypt, hash, safeEqual } = require("./security");
+const { hash, safeEqual } = require("./security");
 const integrationTickets = require("./integrationTickets");
 
 function Model(name) {
@@ -59,6 +59,25 @@ function isOsStageEvent(topic) {
     .toLowerCase();
   return (normalized.includes("ordemservico") || normalized.includes("ordemdeservico") || normalized.startsWith("os"))
     && (normalized.includes("alterad") || normalized.includes("etapa"));
+}
+
+function matchesAppKeyMask(appKey, masked) {
+  const clear = String(appKey || "");
+  const visible = String(masked || "").replace(/•/g, "");
+  return clear.length > 4 && visible.length === 4 && clear.startsWith(visible.slice(0, 2)) && clear.endsWith(visible.slice(-2));
+}
+
+async function verifyWebhookAppKey(base, appKey) {
+  const receivedHash = hash(appKey);
+  if (base.appKeyHash) return safeEqual(receivedHash, base.appKeyHash);
+  // Migração de bases anteriores ao hash: o token opaco já autenticou a base;
+  // a máscara adiciona uma verificação antes de fixar o hash recebido.
+  if (!matchesAppKeyMask(appKey, base.appKeyMasked)) return false;
+  await Model("BaseOmie").updateOne(
+    { _id: base._id, tenantId: base.tenantId, $or: [{ appKeyHash: "" }, { appKeyHash: { $exists: false } }] },
+    { $set: { appKeyHash: receivedHash } },
+  );
+  return true;
 }
 
 async function createProcess({ base, mapping, trigger, normalized }) {
@@ -121,7 +140,7 @@ async function receiveWebhook(token, payload) {
     } else if (!isOsStageEvent(normalized.topic)) {
       response = { accepted: true, ignored: true, reason: "evento-nao-e-alteracao-etapa-os", processes: [] };
     } else {
-      if (!normalized.appKey || !safeEqual(normalized.appKey, decrypt(base.appKeyEncrypted))) {
+      if (!normalized.appKey || !await verifyWebhookAppKey(base, normalized.appKey)) {
         throw new GenericError("App Key do webhook nao corresponde a base configurada.", {
           statusCode: 401,
           code: "WEBHOOK_APP_KEY_MISMATCH",
@@ -158,4 +177,4 @@ async function receiveWebhook(token, payload) {
   }
 }
 
-module.exports = { canonical, isOsStageEvent, normalizeWebhook, receiveWebhook };
+module.exports = { canonical, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
