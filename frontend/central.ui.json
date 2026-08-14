@@ -5,12 +5,7 @@
   "appKind": "member-central",
   "backend": { "metadataUrl": "/core/metadata" },
   "layout": { "shell": "default", "sidebar": "core", "topbar": "core", "assistant": "none", "main": "core" },
-  "navigation": {
-    "mode": "mixed",
-    "items": [
-      { "label": "Tickets de Integração", "href": "/configuracoes/integracao-omie/tickets", "section": "Auditoria", "order": 800, "permissions": ["process.read"] }
-    ]
-  },
+  "navigation": { "mode": "mixed", "items": [] },
   "pages": [
     {
       "id": "inicio",
