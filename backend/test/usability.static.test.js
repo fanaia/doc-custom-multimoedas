@@ -53,7 +53,8 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   assert.match(credentials, /Config\(\)\.findOne\(\{ tenantId/);
   assert.match(credentials, /apiKeyEncrypted: encrypt\(apiKey\)/);
   assert.match(webhook, /\/api\/doc-custom\/webhooks\/omie\/\$\{encodeURIComponent\(token\)\}/);
-  assert.match(frontend, /Use esta mesma URL em todos os tópicos desta base/);
+  assert.match(frontend, /OrdemServico\.Alterada/);
+  assert.match(frontend, /Não é necessário cadastrar inclusão, exclusão ou faturamento/);
 });
 
 test("bases sincronizam etapas categorias e contas correntes por tenant", () => {
