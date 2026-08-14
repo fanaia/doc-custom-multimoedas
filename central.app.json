@@ -12,15 +12,21 @@
   "deploymentMode": "shared",
   "modules": {
     "collections": true,
-    "documents": false,
-    "pipelines": false,
+    "documents": true,
+    "pipelines": true,
     "integrations": false,
     "omie": false,
     "assistants": false,
-    "currencies": false
+    "currencies": true
   },
   "capabilities": [
-    "core.collections"
+    "core.collections",
+    "core.documents",
+    "core.pipelines",
+    "doc-custom.omie",
+    "doc-custom.currencies",
+    "doc-custom.templates",
+    "doc-custom.email"
   ],
   "compatibility": {
     "core": {
@@ -35,7 +41,26 @@
   },
   "rbac": {
     "invitationTtlHours": 72,
-    "permissions": [],
+    "permissions": [
+      "dashboard.read",
+      "process.read",
+      "process.approve",
+      "process.send",
+      "process.retry",
+      "process.reprocess",
+      "process.system",
+      "bases.read",
+      "bases.manage",
+      "settings.read",
+      "settings.manage",
+      "currencies.read",
+      "currencies.manage",
+      "templates.read",
+      "templates.manage",
+      "triggers.read",
+      "triggers.manage",
+      "audit.read"
+    ],
     "roles": [
       {
         "code": "admin",
@@ -45,22 +70,31 @@
         "permissions": ["*"]
       },
       {
-        "code": "operator",
-        "name": "Operador",
-        "description": "Opera a Central conforme as permissões de negócio declaradas pelo projeto.",
-        "permissions": []
+        "code": "approver",
+        "name": "Aprovador",
+        "description": "Consulta processos e aprova ou rejeita o processamento e a fatura.",
+        "permissions": ["dashboard.read", "process.read", "process.approve", "audit.read"]
       },
       {
-        "code": "developer",
-        "name": "Desenvolvedor",
-        "description": "Preserva a migração dos perfis de desenvolvimento existentes; permissões canônicas são declaradas pelo projeto.",
-        "permissions": []
+        "code": "operator",
+        "name": "Operador",
+        "description": "Consulta processos, confirma o envio e executa retentativas permitidas.",
+        "permissions": ["dashboard.read", "process.read", "process.send", "process.retry", "audit.read"]
       },
       {
         "code": "viewer",
         "name": "Consulta",
         "description": "Perfil base para acesso somente às consultas explicitamente permitidas.",
-        "permissions": []
+        "permissions": [
+          "dashboard.read",
+          "process.read",
+          "bases.read",
+          "settings.read",
+          "currencies.read",
+          "templates.read",
+          "triggers.read",
+          "audit.read"
+        ]
       }
     ]
   }
