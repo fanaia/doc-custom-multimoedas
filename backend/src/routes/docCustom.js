@@ -32,7 +32,7 @@ defineRoutes("/api/doc-custom", (router) => {
     res.status(200).json(result);
   });
 
-  router.private.get("/operacao/catalogos", { permission: "templates.read" }, async (req, res) => {
+  router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     const [bases, imagens, templates, documentos] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
