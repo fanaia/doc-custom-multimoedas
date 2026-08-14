@@ -73,6 +73,7 @@
         "code": "developer",
         "name": "Desenvolvedor",
         "description": "Compatibilidade com usuários ativados antes da definição dos perfis de negócio.",
+        "admin": true,
         "permissions": ["*"]
       },
       {

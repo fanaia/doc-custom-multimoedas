@@ -11,6 +11,7 @@ test("preserva acesso de usuários ativados com o perfil developer", () => {
   const developer = app.rbac.roles.find((role) => role.code === "developer");
 
   assert.ok(developer, "o perfil developer não pode ser removido enquanto houver ativações legadas");
+  assert.equal(developer.admin, true);
   assert.deepEqual(developer.permissions, ["*"]);
 });
 
