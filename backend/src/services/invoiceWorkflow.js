@@ -5,6 +5,7 @@ const { collectOmieAttachments } = require("./attachments");
 const { findScopedBase } = require("./baseCredentials");
 const { getConfiguration } = require("./configuration");
 const { sendEmail } = require("./emailSender");
+const { credentials: sendgridCredentials } = require("./sendgridCredentials");
 const gateway = require("./integrations/omieGateway");
 const { buildVariables } = require("./invoiceVariables");
 const { renderPdf } = require("./pdfRenderer");
@@ -271,10 +272,11 @@ async function sendInvoice(process, actor, adapters = {}) {
       { filename: generated.filename, contentType: "application/pdf", buffer: generated.buffer, hash: generated.hash },
       ...omieAttachments,
     ];
+    const sendgrid = adapters.sendEmail ? null : await sendgridCredentials(current.tenantId);
     const result = await (adapters.sendEmail || sendEmail)({
       from: {
-        email: getConfiguration(configurations, "email-from"),
-        name: getConfiguration(configurations, "email-from-nome"),
+        email: getConfiguration(configurations, "email-from") || sendgrid?.from.email,
+        name: getConfiguration(configurations, "email-from-nome") || sendgrid?.from.name,
       },
       ...recipients,
       subject: current.emailSnapshot?.subject || "Invoice",
@@ -284,7 +286,7 @@ async function sendInvoice(process, actor, adapters = {}) {
         contentType: item.contentType,
         contentBase64: item.buffer.toString("base64"),
       })),
-    }, adapters);
+    }, { ...adapters, apiKey: sendgrid?.apiKey, tenantId: current.tenantId, processoId: current._id });
     const sentAt = result.acceptedAt || new Date();
     await Model("ProcessoFatura").updateOne({ _id: current._id, tenantId: current.tenantId, emailProviderId: { $in: [null, ""] } }, {
       $set: {
