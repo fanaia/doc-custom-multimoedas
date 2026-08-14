@@ -13,6 +13,8 @@ const { importMandatoryTemplate } = require("../services/mandatoryTemplate");
 const { normalizeRecipients } = require("../services/recipients");
 const { errorSummary } = require("../services/sanitization");
 const { receiveWebhook } = require("../services/webhookService");
+const sendgrid = require("../services/sendgridCredentials");
+const integrationTickets = require("../services/integrationTickets");
 
 function Model(name) {
   return registry.getModel(name).mongooseModel;
@@ -69,7 +71,7 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     await ensureDefaultCurrencies(tenantId);
-    const [bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos] = await Promise.all([
+    const [bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos, sendgridConfig] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
       Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
       Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
@@ -80,8 +82,40 @@ defineRoutes("/api/doc-custom", (router) => {
       Model("ContaCorrenteOmie").find({ tenantId }).select("baseOmieId codigo descricao banco status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("Gatilho").find({ tenantId }).populate("templateDocumentoId templateAssuntoId templateCorpoId", "codigo descricao tipo versao").sort({ descricao: 1 }).lean(),
       Model("GatilhoBase").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ createdAt: 1 }).lean(),
+      sendgrid.getPublic(tenantId),
     ]);
-    res.json({ bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos });
+    res.json({ bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos, sendgridConfig });
+  });
+
+  router.private.get("/integracoes/tickets", { permission: "audit.read" }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const filter = { tenantId };
+    if (["omie", "sendgrid"].includes(req.query.provider)) filter.provider = req.query.provider;
+    if (["processando", "sucesso", "falha"].includes(req.query.status)) filter.status = req.query.status;
+    if (req.query.baseOmieId) filter.baseOmieId = (await findScopedBase(req.query.baseOmieId, req.accessContext))._id;
+    const tickets = await Model("IntegracaoTicket").find(filter).populate("baseOmieId", "nome codigo").sort({ iniciadoEm: -1 }).limit(250).lean();
+    res.json({ tickets });
+  });
+
+  router.private.put("/integracoes/sendgrid", { permission: "settings.manage", audit: { entidade: "SendGridConfig", acao: "configurada" } }, async (req, res) => {
+    res.json({ message: "Integração SendGrid salva com sucesso.", config: await sendgrid.configure(req.accessContext.tenantId, req.body || {}) });
+  });
+
+  router.private.post("/integracoes/sendgrid/testar", { permission: "settings.manage", audit: { entidade: "SendGridConfig", acao: "conexao-testada" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const credential = await sendgrid.credentials(tenantId);
+    const ticket = await integrationTickets.start({ tenantId, provider: "sendgrid", operacao: "scopes.read", requisicao: {} });
+    try {
+      const response = await fetch("https://api.sendgrid.com/v3/scopes", { headers: { authorization: `Bearer ${credential.apiKey}` }, signal: AbortSignal.timeout(15_000) });
+      if (!response.ok) throw new GenericError(`SendGrid recusou a credencial (HTTP ${response.status}).`, { statusCode: 422, code: "SENDGRID_AUTH_ERROR" });
+      await integrationTickets.success(ticket, { resposta: { httpStatus: response.status } });
+      await Model("SendGridConfig").updateOne({ tenantId }, { $set: { statusConexao: "ok", ultimaConexaoEm: new Date(), ultimoErroConexao: "" } });
+      res.json({ message: "Conexão SendGrid validada com sucesso." });
+    } catch (error) {
+      await integrationTickets.failure(ticket, error);
+      await Model("SendGridConfig").updateOne({ tenantId }, { $set: { statusConexao: "erro", ultimaConexaoEm: new Date(), ultimoErroConexao: String(error.message || "Falha de autenticação.").slice(0, 500) } });
+      throw error;
+    }
   });
 
   async function validateMappingInput(input, tenantId, triggerId) {
