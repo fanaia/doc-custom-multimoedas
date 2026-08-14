@@ -26,6 +26,16 @@ test("preview de template exige dados Omie do tenant", () => {
   assert.match(frontend, /Migalhas de navegação/);
 });
 
+test("aprovacao nao sombreia o process global e preserva os dois identificadores da OS", () => {
+  const workflow = read("src/services/invoiceWorkflow.js");
+  const webhook = read("src/services/webhookService.js");
+  assert.match(workflow, /process\.env\.PROCESS_LOCK_MS/);
+  assert.match(workflow, /const lockedProcess = await Model\("ProcessoFatura"\)/);
+  assert.doesNotMatch(workflow, /const process = await Model\("ProcessoFatura"\)\.findOneAndUpdate/);
+  assert.match(workflow, /numeroOs: process\.numeroOs/);
+  assert.match(webhook, /codigoOs: String\(codigoOs \|\| numeroOs \|\| ""\), numeroOs: String\(numeroOs \|\| ""\)/);
+});
+
 test("cadastro de etapas por base usa somente catalogo sincronizado do tenant", () => {
   const routes = read("src/routes/docCustom.js");
   const frontend = read("../frontend/src/main.tsx");
