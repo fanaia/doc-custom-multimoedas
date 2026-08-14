@@ -76,8 +76,8 @@ test("normalização de webhook é canônica e preserva id do evento", () => {
     event: { numeroOrdemServico: "65", idOrdemServico: 4951204645, etapa: "20" },
   });
   assert.deepEqual(
-    { eventId: omieConnect.eventId, codigoOs: omieConnect.codigoOs, etapa: omieConnect.etapa },
-    { eventId: "msg-65", codigoOs: "65", etapa: "20" },
+    { eventId: omieConnect.eventId, codigoOs: omieConnect.codigoOs, numeroOs: omieConnect.numeroOs, etapa: omieConnect.etapa },
+    { eventId: "msg-65", codigoOs: "4951204645", numeroOs: "65", etapa: "20" },
   );
   assert.equal(isOsStageEvent("OrdemServico.EtapaAlterada"), true);
   assert.equal(isOsStageEvent("Ordem de Serviço - mudança de etapa"), true);
