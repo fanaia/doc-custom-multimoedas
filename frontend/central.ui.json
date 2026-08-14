@@ -5,7 +5,12 @@
   "appKind": "member-central",
   "backend": { "metadataUrl": "/core/metadata" },
   "layout": { "shell": "default", "sidebar": "core", "topbar": "core", "assistant": "none", "main": "core" },
-  "navigation": { "mode": "auto" },
+  "navigation": {
+    "mode": "mixed",
+    "items": [
+      { "label": "Tickets de Integração", "href": "/configuracoes/integracao-omie/tickets", "section": "Auditoria", "order": 800, "permissions": ["process.read"] }
+    ]
+  },
   "pages": [
     {
       "id": "inicio",
@@ -202,6 +207,6 @@
     }
   ],
   "documents": [
-    { "model": "ArtefatoPdf", "mode": "dynamic", "path": "/documentos-gerados", "label": "Documentos gerados", "section": "Documentos", "approval": false, "attachments": true }
+    { "model": "ArtefatoPdf", "mode": "dynamic", "path": "/documentos-gerados", "label": "Documentos gerados", "section": "Documentos", "approval": false, "attachments": true, "builtInActions": { "create": false, "edit": false, "delete": false } }
   ]
 }
