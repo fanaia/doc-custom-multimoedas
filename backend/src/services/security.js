@@ -40,12 +40,20 @@ function decrypt(value) {
       code: "INVALID_ENCRYPTED_CREDENTIAL",
     });
   }
-  const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(parts[2], "base64url"));
-  decipher.setAuthTag(Buffer.from(parts[3], "base64url"));
-  return Buffer.concat([
-    decipher.update(Buffer.from(parts[4], "base64url")),
-    decipher.final(),
-  ]).toString("utf8");
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(parts[2], "base64url"));
+    decipher.setAuthTag(Buffer.from(parts[3], "base64url"));
+    return Buffer.concat([
+      decipher.update(Buffer.from(parts[4], "base64url")),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch (error) {
+    if (error instanceof GenericError) throw error;
+    throw new GenericError("A chave de criptografia da publicacao nao corresponde às credenciais persistidas. Restaure a chave estável da instância ou grave novamente as credenciais.", {
+      statusCode: 503,
+      code: "CREDENTIAL_DECRYPT_FAILED",
+    });
+  }
 }
 
 function mask(value) {

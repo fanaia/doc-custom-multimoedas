@@ -22,6 +22,7 @@ defineTenantModel({
     ultimaConexaoEm: fields.date({ label: "Ultimo teste" }),
     ultimoErroConexao: fields.string({ label: "Ultimo erro" }),
     appKeyEncrypted: secretField(),
+    appKeyHash: { type: String, select: false, trim: false },
     appSecretEncrypted: secretField(),
     webhookTokenEncrypted: secretField(),
     webhookTokenHash: { type: String, select: false, trim: false },

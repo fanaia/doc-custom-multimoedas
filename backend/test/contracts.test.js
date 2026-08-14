@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { registry, scopedIdFilter } = require("@oondemand/oon-core-back");
-const { canonical, isOsStageEvent, normalizeWebhook } = require("../src/services/webhookService");
+const { canonical, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
 const { assertOsContract, normalizeOs } = require("../src/services/invoiceVariables");
 const { sanitize } = require("../src/services/sanitization");
 
@@ -53,7 +53,7 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
     scopedIdFilter(Base, "507f1f77bcf86cd799439011", { tenantId: "tenant-a", tenancyModel: "multi_tenant" }),
     { _id: "507f1f77bcf86cd799439011", tenantId: "tenant-a" },
   );
-  for (const secret of ["appKeyEncrypted", "appSecretEncrypted", "webhookTokenEncrypted", "webhookTokenHash"]) {
+  for (const secret of ["appKeyEncrypted", "appKeyHash", "appSecretEncrypted", "webhookTokenEncrypted", "webhookTokenHash"]) {
     assert.equal(Base.mongooseModel.schema.path(secret).options.select, false);
   }
   assert.equal(registry.getModel("SendGridConfig").mongooseModel.schema.path("apiKeyEncrypted").options.select, false);
@@ -83,6 +83,8 @@ test("normalização de webhook é canônica e preserva id do evento", () => {
   assert.equal(isOsStageEvent("Ordem de Serviço - mudança de etapa"), true);
   assert.equal(isOsStageEvent("OrdemServico.Incluida"), false);
   assert.equal(isOsStageEvent("PedidoVenda.Alterado"), false);
+  assert.equal(matchesAppKeyMask("3908593091403", "39••••••••03"), true);
+  assert.equal(matchesAppKeyMask("9908593091403", "39••••••••03"), false);
 });
 
 test("resposta parcial da Omie falha com campos compreensíveis e defaults seguros", () => {

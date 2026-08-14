@@ -13,7 +13,7 @@ test("credenciais usam AES-GCM e não ficam legíveis", () => {
     assert.ok(encrypted.startsWith("doc-custom:v1:"));
     assert.ok(!encrypted.includes("segredo-omie"));
     assert.equal(decrypt(encrypted), "segredo-omie");
-    assert.throws(() => decrypt(`${encrypted.slice(0, -1)}x`));
+    assert.throws(() => decrypt(`${encrypted.slice(0, -1)}x`), (error) => error.code === "CREDENTIAL_DECRYPT_FAILED");
     assert.equal(mask("abcdefghijkl"), "ab••••••••kl");
     assert.equal(hash("a"), hash("a"));
     assert.equal(safeEqual("token", "token"), true);

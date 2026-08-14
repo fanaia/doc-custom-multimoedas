@@ -9,7 +9,7 @@ function Base() {
 
 async function findScopedBase(id, accessContext, options = {}) {
   let query = Base().findOne(scopedIdFilter(registry.getModel("BaseOmie"), id, accessContext));
-  if (options.secrets) query = query.select("+tenantId +appKeyEncrypted +appSecretEncrypted +webhookTokenEncrypted +webhookTokenHash");
+  if (options.secrets) query = query.select("+tenantId +appKeyEncrypted +appKeyHash +appSecretEncrypted +webhookTokenEncrypted +webhookTokenHash");
   const base = await query;
   if (!base) throw new GenericError("Base Omie nao encontrada neste tenant.", {
     statusCode: 404,
@@ -25,6 +25,7 @@ async function configureCredentials(id, accessContext, input = {}) {
   if (!appKey || !appSecret) throw new GenericError("Informe App Key e App Secret.", { statusCode: 422 });
   const update = {
     appKeyEncrypted: encrypt(appKey),
+    appKeyHash: hash(appKey),
     appSecretEncrypted: encrypt(appSecret),
     appKeyMasked: mask(appKey),
     credenciaisConfiguradas: true,
@@ -88,7 +89,7 @@ async function getWebhookAccess(id, accessContext) {
 async function resolveBaseByWebhookToken(token) {
   const tokenHash = hash(token);
   const base = await Base().findOne({ webhookTokenHash: tokenHash, status: "ativo" })
-    .select("+tenantId +appKeyEncrypted +appSecretEncrypted +webhookTokenEncrypted +webhookTokenHash");
+    .select("+tenantId +appKeyEncrypted +appKeyHash +appSecretEncrypted +webhookTokenEncrypted +webhookTokenHash");
   if (!base) return null;
   return base;
 }

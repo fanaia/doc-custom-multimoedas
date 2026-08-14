@@ -19,7 +19,7 @@ async function assertTenantRef(modelName, id, tenantId, label) {
 }
 
 defineValidation("BaseOmie", async (data, context) => {
-  if (changed(context, ["appKeyEncrypted", "appSecretEncrypted", "webhookTokenEncrypted", "webhookTokenHash", "appKeyMasked", "credenciaisConfiguradas", "webhookConfigurado", "statusConexao", "ultimaConexaoEm", "ultimoErroConexao"])) {
+  if (changed(context, ["appKeyEncrypted", "appKeyHash", "appSecretEncrypted", "webhookTokenEncrypted", "webhookTokenHash", "appKeyMasked", "credenciaisConfiguradas", "webhookConfigurado", "statusConexao", "ultimaConexaoEm", "ultimoErroConexao"])) {
     invalid("Credenciais e campos tecnicos devem ser alterados pelas acoes seguras da Base Omie.", "CONTROLLED_FIELD");
   }
   const cnpj = String(data.cnpj || "").replace(/\D/g, "");
