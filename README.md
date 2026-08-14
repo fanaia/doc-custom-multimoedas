@@ -16,7 +16,7 @@ Falhas ficam na etapa `Falha`, com etapa de origem, tentativa, duração e erro 
 
 ## Arquitetura e isolamento
 
-- Todas as 13 models de negócio usam `scope: tenant`, campo `tenantId` oculto e filtros tenant-scoped.
+- Todas as 12 models de negócio do Doc Custom usam `scope: tenant`, campo `tenantId` oculto e filtros tenant-scoped. A model `Pessoa`, fornecida pelo scaffold, também usa escopo tenant e possui teste de isolamento próprio.
 - Bases Omie, configurações, moedas, histórico, templates, imagens, gatilhos, processos, PDFs e eventos são isolados.
 - App Key, App Secret e token de webhook usam AES-256-GCM em repouso; só a máscara da App Key aparece na metadata/CRUD.
 - O webhook resolve a base por hash de token aleatório e ainda valida a App Key recebida.

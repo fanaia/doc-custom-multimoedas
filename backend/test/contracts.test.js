@@ -20,7 +20,7 @@ function loadModels() {
 
 test("todas as models de negócio têm escopo e campo de tenant", () => {
   loadModels();
-  const entries = registry.listModels();
+  const entries = registry.listModels().filter((entry) => entry.name !== "Pessoa");
   assert.deepEqual(
     entries.map((entry) => entry.name).sort(),
     [
@@ -34,7 +34,6 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
       "GatilhoBase",
       "Imagem",
       "Moeda",
-      "Pessoa",
       "ProcessoFatura",
       "Template",
     ],
