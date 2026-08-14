@@ -1,0 +1,479 @@
+<%
+let idiomaFormatado = 'pt-BR';
+
+let logo = includes.find(item => item.codigo === 'logo').conteudo;
+
+var cotacaoUSD = moedas.find(moeda => moeda.simbolo === 'USD')?.valorFinal;
+var cotacaoEUR = moedas.find(moeda => moeda.simbolo === 'EUR')?.valorFinal;
+
+const enderecoLinha1 = configuracoes.find(c => c.codigo === 'endereco-linha1')?.valor;
+const enderecoLinha2 = configuracoes.find(c => c.codigo === 'endereco-linha2')?.valor;
+const cidade = configuracoes.find(c => c.codigo === 'cidade')?.valor;
+const razaoSocial = configuracoes.find(c => c.codigo === 'razao-social')?.valor;
+
+let partesData = os.InfoCadastro.dDtInc.split('/');
+let data = new Date(partesData[2], partesData[1] - 1, partesData[0]);
+let opcoesExtenso = {year: 'numeric', month: 'long', day: 'numeric' };
+let dataEmissao = data.toLocaleDateString(idiomaFormatado, opcoesExtenso);
+
+let dataRps = os.InformacoesAdicionais.dDataRps ? os.InformacoesAdicionais.dDataRps.split("/") : [];
+let competencia = "";
+if(dataRps.length > 2) { competencia = `${dataRps[1]}/${dataRps[2]}`; }
+
+let subtotalServicos = 0;
+let totalDescontos = 0;
+
+let totalCOFINS = 0;
+let totalCSLL = 0;
+let totalIRRF = 0;
+let totalPIS = 0;
+let totalImpostos = 0;
+
+os.ServicosPrestados.filter(item => item.cReembolso === 'N').forEach((item, index) => {
+  subtotalServicos += (item.nValUnit * item.nQtde);
+  if (item.nValorDesconto && !isNaN(item.nValorDesconto)) {
+    totalDescontos += item.nValorDesconto;
+  }
+
+  if (item.impostos) {
+    totalCOFINS += item.impostos.cRetemCOFINS === "S" ? item.impostos.nValorCOFINS : 0;
+    totalCSLL += item.impostos.cRetemCSLL === "S" ? item.impostos.nValorCSLL : 0;
+    totalIRRF += item.impostos.cRetemIRRF === "S" ? item.impostos.nValorIRRF : 0;
+    totalPIS += item.impostos.cRetemPIS === "S" ? item.impostos.nValorPIS : 0;
+  }
+});
+totalImpostos = totalCOFINS + totalCSLL + totalIRRF + totalPIS;
+
+let subtotalReembolsos = 0;
+os.despesasReembolsaveis?.despesaReembolsavel?.forEach((item, index) => {
+  subtotalReembolsos += item.nValorReemb;
+});
+
+var valorTotal = os.Cabecalho.nValorTotal - totalImpostos;
+
+var campoObservacoes = os.Observacoes.cObsOS.replace(/;/g, '<br />');
+campoObservacoes = campoObservacoes.replace(/\|/g, '');
+
+var match = campoObservacoes.match(/\[\[(.*?)\]\]/);
+var observacoes = "";
+if (match) {
+  observacoes = match[1];
+}
+
+const banco = configuracoes.find(c => c.codigo === "pagamento-banco")?.valor;
+const agencia = configuracoes.find(c => c.codigo === "pagamento-agencia")?.valor;
+const contaCorrente = configuracoes.find(c => c.codigo === "pagamento-cc")?.valor;
+const swift = configuracoes.find(c => c.codigo === "pagamento-swift")?.valor;
+const iban = configuracoes.find(c => c.codigo === "pagamento-iban")?.valor;
+%>
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Fatura | Invoice #<%= os.Cabecalho.cNumOS %></title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        word-wrap: break-word;
+      }
+
+      .container {
+        width: calc(900px - 4rem);
+        padding: 1rem 4rem;
+        margin: auto;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      p,
+      pre {
+        margin: 0;
+      }
+
+      .titulo {
+        background-color: #009999;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px;
+        text-align: cener;
+      }
+
+      .white-border,
+      .white-border th,
+      .white-border td {
+        border: 1px solid #fff;
+        border-collapse: collapse;
+      }
+
+      .no-border {
+        border: none;
+        background-color: transparent;
+      }
+
+      table {
+        width: 100%;
+        margin-bottom: 20px;
+        border-collapse: collapse;
+      }
+
+      th {
+        background-color: #009999;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        text-align: center;
+        padding: 4px;
+      }
+
+      td {
+        color: #1e1e1e;
+        font-size: 13px;
+        font-weight: 400;
+        padding: 4px;
+        text-align: center;
+        vertical-align: top;
+      }
+
+      .right {
+        text-align: right;
+      }
+
+      .semibold {
+        font-weight: 700;
+      }
+
+      .comments {
+        color: black;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      .details {
+        font-size: 12px;
+        font-weight: 500;
+        color: black;
+        text-align: left;
+        padding-top: 4px;
+        padding-bottom: 4px;
+      }
+
+      .header-logo {
+        width: 50%;
+        text-align: left;
+      }
+
+      .header-title {
+        width: 50%;
+        text-align: right;
+        font-size: 14px;
+        font-weight: 600;
+        color: white;
+      }
+
+      .total {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1e1e1e;
+      }
+
+      .subtotal {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1e1e1e;
+      }
+
+      .nowrap {
+        white-space: nowrap;
+      }
+
+      .bg-light {
+        background-color: #efffff;
+      }
+
+      .bg-cell {
+        background-color: #efffff;
+      }
+
+      .text-left {
+        text-align: left;
+      }
+
+      .margin-bottom-10 {
+        margin-bottom: 10px;
+      }
+
+      .padding-bottom-20 {
+        padding-bottom: 20px;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      .text-right {
+        text-align: right;
+      }
+
+      /* Adjusted styles for the payment section */
+      .payment-table {
+        width: 50%;
+        border-collapse: collapse;
+      }
+
+      .payment-table th {
+        background-color: #009999;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        text-align: left;
+        padding: 8px;
+        border: 1px solid #fff;
+      }
+
+      .payment-table td {
+        color: #1e1e1e;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 4px;
+        text-align: left;
+        border: 1px solid #fff;
+      }
+
+      .payment-table .right {
+        text-align: right;
+      }
+
+      .payment-table .bg-cell {
+        background-color: #efffff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <table>
+        <tr>
+          <td class="header-logo"><img src="data:image/gif;base64,<%= logo %>" /></td>
+          <td>
+            <div class="titulo" style="justify-content: center; align-items: center; margin-top: 20px;">
+              FATURA | INVOICE #<%= os.Cabecalho.cNumOS %>
+            </div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Company Details -->
+      <table class="margin-bottom-10" style="margin-bottom: 40px;">
+        <tr>
+          <td class="details" style="width: 50%;">
+            <div  style="font-weight: 700; font-size: 16px; margin-bottom: 10px;">
+                <%= razaoSocial %>
+            </div>
+            <div>
+                CNPJ: <%= baseOmie.cnpj %><br>
+                <%= enderecoLinha1 %><br>
+                <%= enderecoLinha2 %><br>
+            </div>
+          </td>
+          <td class="details" style="padding-top: 50px;">
+            <div  style="font-weight: 700; font-size: 16px; margin-bottom: 10px;">
+                <%= cliente.nome_fantasia %>
+            </div>
+            <div>
+              <% if (cliente.endereco && cliente.codigo_pais == "1058") { %>
+                    CNPJ/CPF: <%= cliente.cnpj_cpf %><br>
+                <% } if (cliente.endereco) { %>
+                    <%= cliente.endereco %>, <%= cliente.endereco_numero %> - <%= cliente.bairro %><br>
+                    <%= cliente.cidade %> -
+                <% } if (cliente.pais) { %>
+                    <%= cliente.pais %>
+                <% } %>
+            </td>
+        </tr>
+      </table>
+
+      <!-- Date -->
+      <div class="details padding-bottom-20"><%= cidade %>, <%= dataEmissao %></div>
+
+        <table class="white-border">
+
+          <tr>
+            <th style="width: 5%">#</th>
+            <th style="width: 60%" class="text-left">SERVIÇOS - <%= competencia %></th>
+            <th style="width: 10%">QTD.</th>
+            <th style="width: 15%">VAL. UNIT.</th>
+            <th style="width: 10%">VAL.</th>
+          </tr>
+
+          <% os.ServicosPrestados.filter(item => item.cReembolso === 'N').forEach((item, index) => { %>
+            <tr class="bg-light">
+              <td class="text-center"><%= index + 1 %></td>
+              <td class="text-left"><%= item.cDescServ %></td>
+              <td><%= item.nQtde %></td>
+              <td class="nowrap">R$ <%= item.nValUnit.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+              <td class="nowrap" style="text-align: right;">R$ <%= (item.nValUnit * item.nQtde).toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+            </tr>
+          <% }); %>
+
+        <tfoot>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right no-border subtotal">Subtotal em BRL</td>
+            <td class="no-border subtotal nowrap" style="text-align: right;">R$ <%= subtotalServicos.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+          </tr>
+          <tr>
+            <td colspan="5" class="no-border"></td>
+          </tr>
+
+          <!-- Taxes -->
+          <% if(totalImpostos > 0 && cliente.codigo_pais == "1058") { %>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right bg-cell">COFINS</td>
+            <td class="nowrap bg-cell" style="text-align: right;">- R$ <%= totalCOFINS.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+          </tr>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right bg-cell">CSLL</td>
+            <td class="nowrap bg-cell" style="text-align: right;">- R$ <%= totalCSLL.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+          </tr>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right bg-cell">IRRF</td>
+            <td class="nowrap bg-cell" style="text-align: right;">- R$ <%= totalIRRF.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+          </tr>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right bg-cell">PIS</td>
+            <td class="nowrap bg-cell" style="text-align: right;">- R$ <%= totalPIS.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+          </tr>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right subtotal">Total Impostos</td>
+            <td class="subtotal nowrap" style="text-align: right;">- R$ <%= totalImpostos.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+          </tr>
+          <% } %>
+
+          <tr>
+            <td colspan="5" class="no-border"></td>
+          </tr>
+          <!-- Reimbursable Expenses -->
+          <% if(subtotalReembolsos > 0) { %>
+            <tr>
+              <th>#</th>
+              <th colspan="3" class="text-left">DESPESA REEMBOLSÁVEL</th>
+              <th>VALOR</th>
+            </tr>
+
+            <% os.despesasReembolsaveis?.despesaReembolsavel?.forEach((item, index) => { %>
+            <tr class="bg-light">
+              <td><%= index + 1 %></td>
+              <td colspan="3" class="text-left"><%= item.cDescReemb %></td>
+              <td class="nowrap" style="text-align: right;">R$ <%= item.nValorReemb.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+            </tr>
+            <% }); %>
+
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right no-border subtotal">Total Despesas</td>
+            <td class="no-border subtotal nowrap" style="text-align: right;">R$ <%= subtotalReembolsos.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %></td>
+          </tr>
+          <% } %>
+
+          <tr>
+            <td colspan="5" class="no-border"></td>
+          </tr>
+          <!-- Totals -->
+          <% if(totalDescontos > 0) { %>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right no-border total">Descontos</td>
+            <td class="no-border total nowrap" style="text-align: right;">
+              - R$ <%= totalDescontos.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %>
+            </td>
+          </tr>
+          <% } %>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right no-border total">Total em BRL</td>
+            <td class="no-border total nowrap" style="text-align: right;">
+              R$ <%= valorTotal.toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right no-border">Total em USD</td>
+            <td class="no-border nowrap" style="text-align: right;">
+              $ <%= (valorTotal / cotacaoUSD).toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="2" class="no-border"></td>
+            <td colspan="2" class="right no-border">Total em EUR</td>
+            <td class="no-border nowrap" style="text-align: right;">
+              € <%= (valorTotal / cotacaoEUR).toLocaleString(idiomaFormatado, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %>
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- Comments -->
+      <% if(observacoes && observacoes.trim() !== "") { %>
+      <div class="comments">
+          <p style="font-weight: 600;">Comentários/Comments</p>
+          <div style="font-size: 13px; font-weight: 400;">
+              <%- observacoes %>
+          </div>
+      </div>
+      <% } %>
+
+      <!-- Payment Info -->
+      <table class="white-border payment-table" style="margin-top: 10px;">
+        <thead>
+          <tr>
+            <th colspan="2" class="text-left">DADOS DE PAGAMENTO</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="bg-light">
+            <td class="right">Due date</td>
+            <td><%= os.Cabecalho.dDtPrevisao %></td>
+          </tr>
+          <tr class="bg-light">
+            <td class="right">Type of payment</td>
+            <td>Domestic/International Transfer</td>
+          </tr>
+          <tr class="bg-light">
+            <td class="right">Bank</td>
+            <td><%= banco %></td>
+          </tr>
+          <tr class="bg-light">
+            <td class="right">Agency</td>
+            <td><%= agencia %></td>
+          </tr>
+          <tr class="bg-light">
+            <td class="right">C/C</td>
+            <td><%= contaCorrente %></td>
+          </tr>
+          <tr class="bg-light">
+            <td class="right">SWIFT</td>
+            <td><%= swift %></td>
+          </tr>
+          <tr class="bg-light">
+            <td class="right">IBAN</td>
+            <td><%= iban  %></td>
+          </tr>
+          <tr class="bg-light">
+            <td class="right">PIX</td>
+            <td><%= baseOmie.cnpj %></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>
