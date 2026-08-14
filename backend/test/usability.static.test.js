@@ -64,11 +64,18 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   assert.match(credentials, /Config\(\)\.findOne\(\{ tenantId/);
   assert.match(credentials, /apiKeyEncrypted: encrypt\(apiKey\)/);
   assert.match(webhook, /\/api\/doc-custom\/webhooks\/omie\/\$\{encodeURIComponent\(token\)\}/);
+  assert.match(webhook, /!base\.webhookConfigurado && !base\.webhookTokenEncrypted/);
+  assert.match(webhook, /WEBHOOK_STATE_INCONSISTENT/);
+  assert.match(webhook, /WEBHOOK_NOT_CONFIGURED/);
+  assert.doesNotMatch(webhook, /if \(!base\.webhookTokenEncrypted\) return rotateWebhook/);
   assert.match(read("src/services/webhookService.js"), /operacao: "webhook\.receive"/);
   assert.match(routes, /defineRoutes\("\/doc-custom"/);
   assert.match(routes, /defineRoutes\("\/api\/doc-custom"/);
   assert.match(routes, /router\.public\.post\("\/webhooks\/omie\/:token", handleOmieWebhook\)/);
-  assert.match(frontend, /OrdemServico\.Alterada/);
+  assert.match(frontend, /Tópico obrigatório no Omie/);
+  assert.match(frontend, /Etapa da Ordem de Serviço alterada/);
+  assert.match(frontend, /OrdemServico\.EtapaAlterada/);
+  assert.match(frontend, /OrdemServico\.Alterada.*continua aceito apenas para compatibilidade/);
   assert.match(frontend, /Não é necessário cadastrar inclusão, exclusão ou faturamento/);
 });
 
