@@ -45,6 +45,7 @@ test("tickets de integracao Omie estao registrados", () => {
 });
 
 test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
+  const routes = read("src/routes/docCustom.js");
   const sender = read("src/services/emailSender.js");
   const credentials = read("src/services/sendgridCredentials.js");
   const webhook = read("src/services/baseCredentials.js");
@@ -53,6 +54,9 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   assert.match(credentials, /Config\(\)\.findOne\(\{ tenantId/);
   assert.match(credentials, /apiKeyEncrypted: encrypt\(apiKey\)/);
   assert.match(webhook, /\/api\/doc-custom\/webhooks\/omie\/\$\{encodeURIComponent\(token\)\}/);
+  assert.match(routes, /defineRoutes\("\/doc-custom"/);
+  assert.match(routes, /defineRoutes\("\/api\/doc-custom"/);
+  assert.match(routes, /router\.public\.post\("\/webhooks\/omie\/:token", handleOmieWebhook\)/);
   assert.match(frontend, /OrdemServico\.Alterada/);
   assert.match(frontend, /Não é necessário cadastrar inclusão, exclusão ou faturamento/);
 });
