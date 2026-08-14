@@ -12,6 +12,6 @@
     "dev:frontend": "npm run dev --prefix frontend"
   },
   "devDependencies": {
-    "@oondemand/create-central-oon": "0.4.2"
+    "@oondemand/create-central-oon": "0.4.4"
   }
 }
