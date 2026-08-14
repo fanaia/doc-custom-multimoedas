@@ -54,6 +54,7 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   assert.match(credentials, /Config\(\)\.findOne\(\{ tenantId/);
   assert.match(credentials, /apiKeyEncrypted: encrypt\(apiKey\)/);
   assert.match(webhook, /\/api\/doc-custom\/webhooks\/omie\/\$\{encodeURIComponent\(token\)\}/);
+  assert.match(read("src/services/webhookService.js"), /operacao: "webhook\.receive"/);
   assert.match(routes, /defineRoutes\("\/doc-custom"/);
   assert.match(routes, /defineRoutes\("\/api\/doc-custom"/);
   assert.match(routes, /router\.public\.post\("\/webhooks\/omie\/:token", handleOmieWebhook\)/);
