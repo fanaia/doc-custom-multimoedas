@@ -23,7 +23,7 @@ Falhas ficam na etapa `Falha`, com etapa de origem, tentativa, duração e erro 
 - O frontend é integralmente declarativo: home, painel, cadastros, filtros, esteira, detalhe, ações condicionais e auditoria são definidos em `frontend/central.ui.json`.
 - Shell, autenticação, RBAC, CRUD, metadata e auditoria HTTP continuam pertencendo ao OonCore.
 
-Os módulos nativos `integrations` e `omie` permanecem desabilitados no OonCore 0.4.2 porque seus modelos/rotas técnicos não têm isolamento por tenant em deployment compartilhado. A integração de OS desta Central usa models e rotas tenant-scoped próprios. O gap do Core está rastreado em [oondemand/oon-platform#106](https://github.com/oondemand/oon-platform/issues/106).
+Os módulos nativos `integrations` e `omie` permanecem desabilitados no OonCore 0.4.5 porque seus modelos/rotas técnicos não têm isolamento por tenant em deployment compartilhado. A integração de OS desta Central usa models e rotas tenant-scoped próprios. O gap do Core está rastreado em [oondemand/oon-platform#106](https://github.com/oondemand/oon-platform/issues/106).
 
 ## Configuração local
 
