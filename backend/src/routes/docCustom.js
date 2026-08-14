@@ -26,6 +26,23 @@ function processAudit(action) {
   return { entidade: "ProcessoFatura", acao: action };
 }
 
+const DEFAULT_CURRENCIES = [
+  { codigo: "USD", simbolo: "$", valorContingencia: 5.03 },
+  { codigo: "EUR", simbolo: "€", valorContingencia: 5.9 },
+  { codigo: "JPY", simbolo: "¥", valorContingencia: 0.035 },
+];
+
+async function ensureDefaultCurrencies(tenantId) {
+  const Currency = Model("Moeda");
+  await Currency.bulkWrite(DEFAULT_CURRENCIES.map((currency) => ({
+    updateOne: {
+      filter: { tenantId, codigo: currency.codigo },
+      update: { $setOnInsert: { tenantId, ...currency, fonte: "bacen", status: "ativo", ultimaOrigem: "nenhuma" } },
+      upsert: true,
+    },
+  })));
+}
+
 async function synchronizeCatalog({ modelName, base, accessContext, items, mapItem }) {
   const Catalog = Model(modelName);
   const now = new Date();
@@ -51,15 +68,18 @@ defineRoutes("/api/doc-custom", (router) => {
 
   router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
-    const [bases, imagens, templates, documentos, configuracoes, etapas] = await Promise.all([
+    await ensureDefaultCurrencies(tenantId);
+    const [bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
       Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
       Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
       Model("ArtefatoPdf").find({ tenantId }).sort({ geradoEm: -1 }).limit(100).lean(),
       Model("Configuracao").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("EtapaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
+      Model("CategoriaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
+      Model("ContaCorrenteOmie").find({ tenantId }).select("baseOmieId codigo descricao banco status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
     ]);
-    res.json({ bases, imagens, templates, documentos, configuracoes, etapas });
+    res.json({ bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes });
   });
   router.private.post("/bases", { permission: "bases.manage", audit: { entidade: "BaseOmie", acao: "base-configurada" } }, async (req, res) => {
     const input = req.body || {};
