@@ -62,11 +62,20 @@ async function synchronizeCatalog({ modelName, base, accessContext, items, mapIt
   return { total: items.length, synchronizedAt: now };
 }
 
+async function handleOmieWebhook(req, res) {
+  const result = await receiveWebhook(req.params.token, req.body || {});
+  res.status(200).json(result);
+}
+
+// O ingress público remove o primeiro segmento /api antes de encaminhar ao backend.
+// Este alias mantém a URL pública /api/doc-custom/... funcional sem remover a rota
+// canônica, usada no desenvolvimento local e em integrações internas.
+defineRoutes("/doc-custom", (router) => {
+  router.public.post("/webhooks/omie/:token", handleOmieWebhook);
+});
+
 defineRoutes("/api/doc-custom", (router) => {
-  router.public.post("/webhooks/omie/:token", async (req, res) => {
-    const result = await receiveWebhook(req.params.token, req.body || {});
-    res.status(200).json(result);
-  });
+  router.public.post("/webhooks/omie/:token", handleOmieWebhook);
 
   router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
