@@ -3,6 +3,7 @@
 const { GenericError, registry } = require("@oondemand/oon-core-back");
 const { resolveBaseByWebhookToken } = require("./baseCredentials");
 const { decrypt, hash, safeEqual } = require("./security");
+const integrationTickets = require("./integrationTickets");
 
 function Model(name) {
   return registry.getModel(name).mongooseModel;
@@ -29,7 +30,10 @@ function normalizeWebhook(payload = {}) {
   const topic = String(valueAt(payload, ["topic", "eventType", "event_type", "evento", "message.topic"]) || "");
   const ping = Boolean(payload.ping || /ping|teste|test/i.test(topic));
   const codigoOs = valueAt(payload, [
-    "nCodOS", "codigo_os", "codigoOs", "event.nCodOS", "event.codigo_os", "data.nCodOS", "entity.nCodOS",
+    "numeroOrdemServico", "nCodOS", "codigo_os", "codigoOs", "idOrdemServico",
+    "event.numeroOrdemServico", "event.nCodOS", "event.codigo_os", "event.codigoOs", "event.idOrdemServico",
+    "data.numeroOrdemServico", "data.nCodOS", "data.idOrdemServico",
+    "entity.numeroOrdemServico", "entity.nCodOS", "entity.idOrdemServico",
   ]);
   const etapa = valueAt(payload, [
     "cEtapa", "etapa", "event.cEtapa", "event.etapa", "data.cEtapa", "entity.cEtapa",
@@ -96,38 +100,55 @@ async function receiveWebhook(token, payload) {
   const base = await resolveBaseByWebhookToken(token);
   if (!base) throw new GenericError("Webhook nao autorizado.", { statusCode: 401, code: "WEBHOOK_UNAUTHORIZED" });
   const normalized = normalizeWebhook(payload);
-  if (normalized.ping) return { ping: true, accepted: true, processes: [] };
-  if (!isOsStageEvent(normalized.topic)) {
-    return { accepted: true, ignored: true, reason: "evento-nao-e-alteracao-etapa-os", processes: [] };
-  }
-  if (!normalized.appKey || !safeEqual(normalized.appKey, decrypt(base.appKeyEncrypted))) {
-    throw new GenericError("App Key do webhook nao corresponde a base configurada.", {
-      statusCode: 401,
-      code: "WEBHOOK_APP_KEY_MISMATCH",
-    });
-  }
-  if (!normalized.codigoOs || !normalized.etapa) {
-    throw new GenericError("Webhook de OS sem codigo ou etapa.", { statusCode: 422, code: "WEBHOOK_PAYLOAD_INVALID" });
-  }
-  const mappings = await Model("GatilhoBase").find({
+  const ticket = await integrationTickets.start({
     tenantId: base.tenantId,
+    provider: "omie",
+    operacao: "webhook.receive",
     baseOmieId: base._id,
-    etapaEnvio: normalized.etapa,
-    status: "ativo",
+    requisicao: { topic: normalized.topic, eventId: normalized.eventId, codigoOs: normalized.codigoOs, etapa: normalized.etapa },
   });
-  const results = [];
-  for (const mapping of mappings) {
-    const trigger = await Model("Gatilho").findOne({ _id: mapping.gatilhoId, tenantId: base.tenantId, status: "ativo", tipoDocumento: "ordem-servico" });
-    if (!trigger) continue;
-    const result = await createProcess({ base, mapping, trigger, normalized });
-    results.push({ id: String(result.process._id), duplicate: result.duplicate });
+  try {
+    let response;
+    if (normalized.ping) {
+      response = { ping: true, accepted: true, processes: [] };
+    } else if (!isOsStageEvent(normalized.topic)) {
+      response = { accepted: true, ignored: true, reason: "evento-nao-e-alteracao-etapa-os", processes: [] };
+    } else {
+      if (!normalized.appKey || !safeEqual(normalized.appKey, decrypt(base.appKeyEncrypted))) {
+        throw new GenericError("App Key do webhook nao corresponde a base configurada.", {
+          statusCode: 401,
+          code: "WEBHOOK_APP_KEY_MISMATCH",
+        });
+      }
+      if (!normalized.codigoOs || !normalized.etapa) {
+        throw new GenericError("Webhook de OS sem codigo ou etapa.", { statusCode: 422, code: "WEBHOOK_PAYLOAD_INVALID" });
+      }
+      const mappings = await Model("GatilhoBase").find({
+        tenantId: base.tenantId,
+        baseOmieId: base._id,
+        etapaEnvio: normalized.etapa,
+        status: "ativo",
+      });
+      const results = [];
+      for (const mapping of mappings) {
+        const trigger = await Model("Gatilho").findOne({ _id: mapping.gatilhoId, tenantId: base.tenantId, status: "ativo", tipoDocumento: "ordem-servico" });
+        if (!trigger) continue;
+        const result = await createProcess({ base, mapping, trigger, normalized });
+        results.push({ id: String(result.process._id), duplicate: result.duplicate });
+      }
+      response = {
+        accepted: true,
+        ignored: results.length === 0,
+        reason: results.length ? undefined : "etapa-sem-gatilho",
+        processes: results,
+      };
+    }
+    await integrationTickets.success(ticket, { resposta: response, codigoExterno: normalized.eventId });
+    return response;
+  } catch (error) {
+    await integrationTickets.failure(ticket, error);
+    throw error;
   }
-  return {
-    accepted: true,
-    ignored: results.length === 0,
-    reason: results.length ? undefined : "etapa-sem-gatilho",
-    processes: results,
-  };
 }
 
 module.exports = { canonical, isOsStageEvent, normalizeWebhook, receiveWebhook };
