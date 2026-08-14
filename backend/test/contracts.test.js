@@ -71,6 +71,15 @@ test("normalização de webhook é canônica e preserva id do evento", () => {
   );
   assert.equal(normalizeWebhook({ topic: "ping", ping: true }).ping, true);
   assert.equal(isOsStageEvent("OrdemServico.Alterada"), true);
+  const omieConnect = normalizeWebhook({
+    messageId: "msg-65", topic: "OrdemServico.EtapaAlterada", appKey: "base-a",
+    event: { numeroOrdemServico: "65", idOrdemServico: 4951204645, etapa: "20" },
+  });
+  assert.deepEqual(
+    { eventId: omieConnect.eventId, codigoOs: omieConnect.codigoOs, etapa: omieConnect.etapa },
+    { eventId: "msg-65", codigoOs: "65", etapa: "20" },
+  );
+  assert.equal(isOsStageEvent("OrdemServico.EtapaAlterada"), true);
   assert.equal(isOsStageEvent("Ordem de Serviço - mudança de etapa"), true);
   assert.equal(isOsStageEvent("OrdemServico.Incluida"), false);
   assert.equal(isOsStageEvent("PedidoVenda.Alterado"), false);
