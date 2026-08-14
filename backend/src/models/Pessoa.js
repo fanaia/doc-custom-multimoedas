@@ -8,6 +8,9 @@ defineModel({
   name: "Pessoa",
   singular: "pessoa",
   basePath: "/pessoas",
+  // O Core injeta tenantId como campo interno e aplica o tenant autorizado
+  // em todas as leituras e mutações. O cliente não pode sobrescrever o escopo.
+  scope: "tenant",
   schema: {
     nome: fields.string({ required: true, label: "Nome" }),
     email: fields.string({ label: "E-mail" }),
