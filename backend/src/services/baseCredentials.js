@@ -31,11 +31,16 @@ async function configureCredentials(id, accessContext, input = {}) {
     statusConexao: "nao-testada",
     ultimoErroConexao: "",
   };
-  if (!base.webhookTokenEncrypted) {
+  if (!base.webhookConfigurado && !base.webhookTokenEncrypted) {
     const token = generateToken();
     update.webhookTokenEncrypted = encrypt(token);
     update.webhookTokenHash = hash(token);
     update.webhookConfigurado = true;
+  } else if (base.webhookConfigurado && !base.webhookTokenEncrypted) {
+    throw new GenericError("Token do webhook indisponivel. Verifique a persistencia do banco e a chave de criptografia da publicacao; o token nao foi rotacionado.", {
+      statusCode: 503,
+      code: "WEBHOOK_STATE_INCONSISTENT",
+    });
   }
   await Base().updateOne({ _id: base._id, tenantId: accessContext.tenantId }, { $set: update });
   return Base().findOne({ _id: base._id, tenantId: accessContext.tenantId });
@@ -71,7 +76,12 @@ function webhookAccess(base, token, rotated = false) {
 
 async function getWebhookAccess(id, accessContext) {
   const base = await findScopedBase(id, accessContext, { secrets: true });
-  if (!base.webhookTokenEncrypted) return rotateWebhook(id, accessContext);
+  if (!base.webhookTokenEncrypted) {
+    throw new GenericError("Webhook ainda nao configurado ou estado persistido indisponivel. Use Rotacionar token somente para criar uma nova URL de forma explicita.", {
+      statusCode: 409,
+      code: "WEBHOOK_NOT_CONFIGURED",
+    });
+  }
   return webhookAccess(base, decrypt(base.webhookTokenEncrypted), false);
 }
 
