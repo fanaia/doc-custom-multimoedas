@@ -70,6 +70,12 @@
         "permissions": ["*"]
       },
       {
+        "code": "developer",
+        "name": "Desenvolvedor",
+        "description": "Compatibilidade com usuários ativados antes da definição dos perfis de negócio.",
+        "permissions": ["*"]
+      },
+      {
         "code": "approver",
         "name": "Aprovador",
         "description": "Consulta processos e aprova ou rejeita o processamento e a fatura.",
