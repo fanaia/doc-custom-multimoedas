@@ -133,8 +133,8 @@
     },
     { "model": "GatilhoBase", "mode": "dynamic", "path": "/mapeamentos-gatilhos", "label": "Mapeamentos de gatilhos", "section": "Documentos", "hidden": true },
     { "model": "EtapaOmie", "mode": "dynamic", "path": "/etapas-omie", "label": "Etapas Omie", "section": "Configurações", "hidden": true },
-    { "model": "CategoriaOmie", "mode": "dynamic", "path": "/categorias-omie", "label": "Categorias Omie", "section": "Configurações", "list": { "builtInActions": { "create": false, "edit": false, "delete": false }, "filters": [{ "field": "baseOmieId", "label": "Base Omie", "type": "ref" }], "columns": ["baseOmieId", "codigo", "descricao", "status", "sincronizadaEm"] } },
-    { "model": "ContaCorrenteOmie", "mode": "dynamic", "path": "/contas-correntes-omie", "label": "Contas correntes Omie", "section": "Configurações", "list": { "builtInActions": { "create": false, "edit": false, "delete": false }, "filters": [{ "field": "baseOmieId", "label": "Base Omie", "type": "ref" }], "columns": ["baseOmieId", "codigo", "descricao", "banco", "status", "sincronizadaEm"] } },
+    { "model": "CategoriaOmie", "mode": "dynamic", "path": "/categorias-omie", "label": "Categorias Omie", "section": "Configurações", "hidden": true, "list": { "builtInActions": { "create": false, "edit": false, "delete": false }, "filters": [{ "field": "baseOmieId", "label": "Base Omie", "type": "ref" }], "columns": ["baseOmieId", "codigo", "descricao", "status", "sincronizadaEm"] } },
+    { "model": "ContaCorrenteOmie", "mode": "dynamic", "path": "/contas-correntes-omie", "label": "Contas correntes Omie", "section": "Configurações", "hidden": true, "list": { "builtInActions": { "create": false, "edit": false, "delete": false }, "filters": [{ "field": "baseOmieId", "label": "Base Omie", "type": "ref" }], "columns": ["baseOmieId", "codigo", "descricao", "banco", "status", "sincronizadaEm"] } },
     { "model": "CotacaoMoeda", "mode": "dynamic", "path": "/cotacoes", "label": "Cotações", "section": "Auditoria", "hidden": true },
     {
       "model": "ProcessoFatura",

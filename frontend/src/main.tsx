@@ -6,7 +6,7 @@ import app from "../../central.app.json";
 import ui from "../central.ui.json";
 
 type Item = Record<string, any> & { _id: string };
-type Catalogs = { bases: Item[]; imagens: Item[]; templates: Item[]; documentos: Item[]; configuracoes: Item[]; etapas: Item[] };
+type Catalogs = { bases: Item[]; imagens: Item[]; templates: Item[]; documentos: Item[]; configuracoes: Item[]; etapas: Item[]; categorias: Item[]; contasCorrentes: Item[] };
 
 const card: React.CSSProperties = { background: "white", border: "1px solid #dce3ea", borderRadius: 12, padding: 18 };
 const input: React.CSSProperties = { border: "1px solid #cbd5e1", borderRadius: 8, padding: "10px 12px", width: "100%" };
@@ -44,27 +44,34 @@ function BasesOmiePage() {
       <input style={input} name="appKey" placeholder="App Key" required/><input style={input} name="appSecret" type="password" placeholder="App Secret" required/>
       <button style={button} disabled={save.isPending}>{save.isPending ? "Salvando..." : "Salvar base"}</button>
     </form>}
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14 }}>{query.data?.bases.map(base => { const stageCount = query.data?.etapas.filter(stage => String(stage.baseOmieId?._id || stage.baseOmieId) === String(base._id)).length || 0; return <div style={card} key={base._id}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14 }}>{query.data?.bases.map(base => { const belongsToBase = (item: Item) => String(item.baseOmieId?._id || item.baseOmieId) === String(base._id); const stageCount = query.data?.etapas.filter(belongsToBase).length || 0; const categoryCount = query.data?.categorias.filter(belongsToBase).length || 0; const accountCount = query.data?.contasCorrentes.filter(belongsToBase).length || 0; return <div style={card} key={base._id}>
       <strong style={{ fontSize: 18 }}>{base.nome}</strong><p>{base.cnpj} · {base.ambiente}</p><p>Conexão: <b>{base.statusConexao || "não testada"}</b></p><p style={{ color: "#64748b" }}>App Key: {base.appKeyMasked || "configurada"}</p>
-      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={button} onClick={() => action.mutate({id:base._id,operation:"testar"})}>Testar conexão</button>{stageCount > 0 ? <button style={secondary} onClick={() => navigate(`/etapas-omie?baseOmieId=${encodeURIComponent(base._id)}`)}>Ver etapas ({stageCount})</button> : <button style={secondary} onClick={() => action.mutate({id:base._id,operation:"etapas/sincronizar"})}>Sincronizar etapas</button>}<button style={secondary} onClick={() => action.mutate({id:base._id,operation:"categorias/sincronizar"})}>Sincronizar categorias</button><button style={secondary} onClick={() => action.mutate({id:base._id,operation:"contas-correntes/sincronizar"})}>Sincronizar contas correntes</button></div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button style={button} onClick={() => action.mutate({id:base._id,operation:"testar"})}>Testar conexão</button>{stageCount > 0 ? <button style={secondary} onClick={() => navigate(`/etapas-omie?baseOmieId=${encodeURIComponent(base._id)}`)}>Ver etapas ({stageCount})</button> : <button style={secondary} onClick={() => action.mutate({id:base._id,operation:"etapas/sincronizar"})}>Sincronizar etapas</button>}{categoryCount > 0 ? <button style={secondary} onClick={() => navigate(`/categorias-omie?baseOmieId=${encodeURIComponent(base._id)}`)}>Ver categorias ({categoryCount})</button> : <button style={secondary} onClick={() => action.mutate({id:base._id,operation:"categorias/sincronizar"})}>Sincronizar categorias</button>}{accountCount > 0 ? <button style={secondary} onClick={() => navigate(`/contas-correntes-omie?baseOmieId=${encodeURIComponent(base._id)}`)}>Ver contas correntes ({accountCount})</button> : <button style={secondary} onClick={() => action.mutate({id:base._id,operation:"contas-correntes/sincronizar"})}>Sincronizar contas correntes</button>}</div>
     </div>})}</div>
   </div>;
 }
 
-function EtapasOmiePage() {
+function SynchronizedOmieListPage({ kind }: { kind: "etapas" | "categorias" | "contas-correntes" }) {
   const { http } = useOonApi(); const query = useCatalogs(); const cache = useQueryClient(); const [searchParams, setSearchParams] = useSearchParams();
   const [message, setMessage] = useState(""); const [error, setError] = useState(""); const baseOmieId = searchParams.get("baseOmieId") || "";
+  const label = kind === "etapas" ? "etapas" : kind === "categorias" ? "categorias" : "contas correntes";
+  const title = kind === "etapas" ? "Etapas Omie" : kind === "categorias" ? "Categorias Omie" : "Contas correntes Omie";
+  const allRows = kind === "etapas" ? query.data?.etapas : kind === "categorias" ? query.data?.categorias : query.data?.contasCorrentes;
   const update = useMutation({
-    mutationFn: async () => (await http.post(`/api/doc-custom/bases/${baseOmieId}/etapas/sincronizar`)).data,
-    onSuccess: (data) => { setError(""); setMessage(`${Number(data.total || 0)} etapas atualizadas com sucesso.`); cache.invalidateQueries({ queryKey: ["doc-custom-catalogs"] }); },
+    mutationFn: async () => (await http.post(`/api/doc-custom/bases/${baseOmieId}/${kind}/sincronizar`)).data,
+    onSuccess: (data) => { setError(""); setMessage(`${Number(data.total || 0)} ${label} atualizadas com sucesso.`); cache.invalidateQueries({ queryKey: ["doc-custom-catalogs"] }); },
     onError: (e) => { setMessage(""); setError(errorText(e)); },
   });
-  const rows = (query.data?.etapas || []).filter(stage => !baseOmieId || String(stage.baseOmieId?._id || stage.baseOmieId) === baseOmieId);
-  return <div><Header title="Etapas Omie" description="Consulte as etapas sincronizadas e atualize-as diretamente a partir da base Omie."/><Notice message={message} error={error}/>
-    <div style={{display:"flex",justifyContent:"space-between",gap:12,marginBottom:14}}><select style={{...input,maxWidth:360}} value={baseOmieId} onChange={event => { const value = event.target.value; setSearchParams(value ? { baseOmieId: value } : {}); }}><option value="">Todas as bases Omie</option>{query.data?.bases.map(base => <option key={base._id} value={base._id}>{base.nome}</option>)}</select><button style={button} disabled={!baseOmieId || update.isPending} onClick={() => update.mutate()}>{update.isPending ? "Atualizando..." : "Atualizar etapas"}</button></div>
-    <div style={card}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th align="left">Base Omie</th><th align="left">Código</th><th align="left">Descrição</th><th align="left">Status</th><th align="left">Sincronizada em</th></tr></thead><tbody>{rows.map(stage => <tr key={stage._id}><td>{stage.baseOmieId?.nome || "-"}</td><td>{stage.codigo}</td><td>{stage.descricao}</td><td>{stage.status}</td><td>{stage.sincronizadaEm ? new Date(stage.sincronizadaEm).toLocaleString("pt-BR") : "-"}</td></tr>)}{!query.isLoading && rows.length === 0 && <tr><td colSpan={5} style={{padding:"24px 0",color:"#64748b"}}>Nenhuma etapa sincronizada.</td></tr>}</tbody></table></div>
+  const rows = (allRows || []).filter(item => !baseOmieId || String(item.baseOmieId?._id || item.baseOmieId) === baseOmieId);
+  return <div><Header title={title} description={`Lista somente leitura das ${label} sincronizadas com o Omie.`}/><Notice message={message} error={error}/>
+    <div style={{display:"flex",justifyContent:"space-between",gap:12,marginBottom:14}}><select aria-label="Base Omie" style={{...input,maxWidth:360}} value={baseOmieId} onChange={event => { const value = event.target.value; setSearchParams(value ? { baseOmieId: value } : {}); }}><option value="">Todas as bases Omie</option>{query.data?.bases.map(base => <option key={base._id} value={base._id}>{base.nome}</option>)}</select><button style={button} disabled={!baseOmieId || update.isPending} onClick={() => update.mutate()}>{update.isPending ? "Atualizando..." : `Atualizar ${label}`}</button></div>
+    <div style={card}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th align="left">Base Omie</th><th align="left">Código</th><th align="left">Descrição</th>{kind === "contas-correntes" && <th align="left">Banco</th>}<th align="left">Status</th><th align="left">Sincronizada em</th></tr></thead><tbody>{rows.map(item => <tr key={item._id}><td>{item.baseOmieId?.nome || "-"}</td><td>{item.codigo}</td><td>{item.descricao}</td>{kind === "contas-correntes" && <td>{item.banco || "-"}</td>}<td>{item.status}</td><td>{item.sincronizadaEm ? new Date(item.sincronizadaEm).toLocaleString("pt-BR") : "-"}</td></tr>)}{!query.isLoading && rows.length === 0 && <tr><td colSpan={kind === "contas-correntes" ? 6 : 5} style={{padding:"24px 0",color:"#64748b"}}>Nenhum registro sincronizado.</td></tr>}</tbody></table></div>
   </div>;
 }
+
+function EtapasOmiePage() { return <SynchronizedOmieListPage kind="etapas"/>; }
+function CategoriasOmiePage() { return <SynchronizedOmieListPage kind="categorias"/>; }
+function ContasCorrentesOmiePage() { return <SynchronizedOmieListPage kind="contas-correntes"/>; }
 
 function ImagensPage() {
   const { http } = useOonApi(); const query = useCatalogs(); const cache = useQueryClient(); const [preview, setPreview] = useState<{ item: Item; url: string }>(); const [editing,setEditing]=useState<Item>(); const [view,setView]=useState<"cards"|"list">("cards"); const [message,setMessage]=useState(""); const [error,setError]=useState("");
@@ -116,7 +123,7 @@ function ConfiguracoesPage(){
 
 function DocumentosPage() { const query=useCatalogs(); return <div><Header title="Documentos gerados" description="Documentos criados automaticamente pelos templates e pela esteira de processamento."/><div style={card}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th align="left">Arquivo</th><th align="left">Template</th><th align="left">Tamanho</th><th align="left">Gerado em</th></tr></thead><tbody>{query.data?.documentos.map(d=><tr key={d._id}><td>{d.nomeArquivo}</td><td>{d.templateCodigo} v{d.templateVersao}</td><td>{(Number(d.tamanho)/1024).toFixed(1)} KB</td><td>{new Date(d.geradoEm).toLocaleString("pt-BR")}</td></tr>)}</tbody></table></div></div> }
 
-const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "EtapaOmie"]);
+const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "EtapaOmie", "CategoriaOmie", "ContaCorrenteOmie"]);
 const uiManifest = {
   ...ui,
   collections: ui.collections.filter((collection) => !replaced.has(collection.model)),
@@ -125,7 +132,9 @@ const uiManifest = {
     ...ui.pages,
     { id: "bases-omie-operacao", path: "/bases-omie", label: "Bases Omie", title: "Bases Omie", section: "Configurações", component: "BasesOmiePage", order: 10, permissions: ["bases.read"] },
     { id: "configuracoes-operacao", path: "/configuracoes", label: "Configurações", title: "Configurações", section: "Configurações", component: "ConfiguracoesPage", order: 11, permissions: ["settings.read"] },
-    { id: "etapas-omie-operacao", path: "/etapas-omie", label: "Etapas Omie", title: "Etapas Omie", section: "Configurações", component: "EtapasOmiePage", order: 12, permissions: ["bases.read"] },
+    { id: "etapas-omie-operacao", path: "/etapas-omie", label: "Etapas Omie", title: "Etapas Omie", section: "Configurações", component: "EtapasOmiePage", order: 12, hidden: true, permissions: ["bases.read"] },
+    { id: "categorias-omie-operacao", path: "/categorias-omie", label: "Categorias Omie", title: "Categorias Omie", section: "Configurações", component: "CategoriasOmiePage", order: 13, hidden: true, permissions: ["bases.read"] },
+    { id: "contas-correntes-omie-operacao", path: "/contas-correntes-omie", label: "Contas correntes Omie", title: "Contas correntes Omie", section: "Configurações", component: "ContasCorrentesOmiePage", order: 14, hidden: true, permissions: ["bases.read"] },
     { id: "templates-operacao", path: "/templates", label: "Templates EJS", title: "Templates EJS", section: "Documentos", component: "TemplatesPage", order: 20, permissions: ["templates.read"] },
     { id: "imagens-operacao", path: "/imagens", label: "Imagens", title: "Imagens", section: "Documentos", component: "ImagensPage", order: 30, permissions: ["templates.read"] },
     { id: "documentos-operacao", path: "/documentos-gerados", label: "Documentos gerados", title: "Documentos gerados", section: "Documentos", component: "DocumentosPage", order: 40, permissions: ["process.read"] },
@@ -136,5 +145,5 @@ startCentralFromManifest({ app, ui: uiManifest as Parameters<typeof startCentral
   apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
   meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
-  customComponents: { BasesOmiePage, ConfiguracoesPage, EtapasOmiePage, ImagensPage, TemplatesPage, DocumentosPage },
+  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, ImagensPage, TemplatesPage, DocumentosPage },
 });

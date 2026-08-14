@@ -44,3 +44,15 @@ test("templates imagens e configuracoes possuem manutencao operacional", () => {
   assert.match(routes, /private\.put\("\/imagens\/:id"/);
   assert.match(routes, /private\.delete\("\/configuracoes\/:id"/);
 });
+
+test("listas Omie ficam fora do menu e moedas padrao sao criadas por tenant", () => {
+  const routes = read("src/routes/docCustom.js");
+  const ui = read("../frontend/central.ui.json");
+  assert.match(routes, /DEFAULT_CURRENCIES/);
+  assert.match(routes, /codigo: "USD"/);
+  assert.match(routes, /codigo: "EUR"/);
+  assert.match(routes, /codigo: "JPY"/);
+  assert.match(routes, /filter: \{ tenantId, codigo: currency\.codigo \}/);
+  assert.match(ui, /"model": "CategoriaOmie"[^\n]+"hidden": true/);
+  assert.match(ui, /"model": "ContaCorrenteOmie"[^\n]+"hidden": true/);
+});
