@@ -38,9 +38,19 @@ function normalizeOs(os) {
 
 async function buildVariables({ tenantId, base, codigoOs, numeroOs, processoId, accessContext, adapters = {} }) {
   const omie = adapters.gateway || gateway;
-  const osRaw = codigoOs
-    ? await omie.consultarOs(base, accessContext, codigoOs, adapters)
-    : await omie.consultarOsPorNumero(base, accessContext, numeroOs, adapters);
+  let osRaw;
+  if (codigoOs) {
+    try {
+      osRaw = await omie.consultarOs(base, accessContext, codigoOs, adapters);
+    } catch (error) {
+      // Processos criados antes da separação dos identificadores podem ter o
+      // número público salvo em codigoOs. Reconsulta por número para recuperá-los.
+      if (numeroOs || error?.code !== "OMIE_API_ERROR") throw error;
+      osRaw = await omie.consultarOsPorNumero(base, accessContext, codigoOs, adapters);
+    }
+  } else {
+    osRaw = await omie.consultarOsPorNumero(base, accessContext, numeroOs, adapters);
+  }
   assertOsContract(osRaw);
   const os = normalizeOs(osRaw);
   const cliente = await omie.consultarCliente(base, accessContext, os.Cabecalho.nCodCli, adapters);
