@@ -26,7 +26,9 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
     [
       "ArtefatoPdf",
       "BaseOmie",
+      "CategoriaOmie",
       "Configuracao",
+      "ContaCorrenteOmie",
       "CotacaoMoeda",
       "EtapaOmie",
       "EventoProcesso",

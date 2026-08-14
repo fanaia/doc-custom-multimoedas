@@ -9,6 +9,9 @@ const { defineOmieMapping } = require("@oondemand/oon-core-back");
 defineOmieMapping("doc-custom-multimoedas", {
   instances: [{ id: "tenant-bases", label: "Bases Omie configuradas" }],
   calls: {
+    "listar-etapas": { label: "Sincronizar etapas", endpoint: "produtos/etapafat/", call: "ListarEtapasFaturamento", param: [{ pagina: 1, registros_por_pagina: 900 }], maxAttempts: 3 },
+    "listar-categorias": { label: "Sincronizar categorias", endpoint: "geral/categorias/", call: "ListarCategorias", param: [{ pagina: 1, registros_por_pagina: 900 }], maxAttempts: 3 },
+    "listar-contas-correntes": { label: "Sincronizar contas correntes", endpoint: "geral/contacorrente/", call: "ListarContasCorrentes", param: [{ pagina: 1, registros_por_pagina: 900, apenas_importado_api: "N" }], maxAttempts: 3 },
     "consultar-ordem-servico": {
       label: "Consultar ordem de serviço",
       endpoint: "servicos/os/",
