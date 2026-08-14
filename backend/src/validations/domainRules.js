@@ -33,6 +33,12 @@ defineValidation("Configuracao", async (data, context) => {
   if (data.tipo === "booleano" && !["true", "false"].includes(String(data.valor).toLowerCase())) invalid("Booleano deve ser true ou false.");
 });
 
+defineValidation("SendGridConfig", async (data, context) => {
+  if (changed(context, ["apiKeyEncrypted", "apiKeyMasked", "credencialConfigurada", "statusConexao", "ultimaConexaoEm", "ultimoErroConexao"])) {
+    invalid("Credenciais SendGrid devem ser alteradas pela configuração segura da integração.", "CONTROLLED_FIELD");
+  }
+});
+
 defineValidation("Moeda", async (data, context) => {
   if (changed(context, ["ultimoValorValido", "ultimaReferenciaEm", "ultimaConsultaEm", "ultimaOrigem"])) {
     invalid("Historico da moeda e controlado pela execucao.", "CONTROLLED_FIELD");
@@ -93,7 +99,7 @@ defineValidation("GatilhoBase", async (data, context) => {
   if (count !== 3) invalid("Sincronize a Base Omie e selecione tres etapas validas de Venda de Servico.", "OMIE_STAGE_INVALID");
 });
 
-for (const modelName of ["CotacaoMoeda", "EtapaOmie", "ProcessoFatura", "ArtefatoPdf", "EventoProcesso"]) {
+for (const modelName of ["CotacaoMoeda", "EtapaOmie", "ProcessoFatura", "ArtefatoPdf", "EventoProcesso", "IntegracaoTicket"]) {
   defineValidation(modelName, async () => invalid("Registro controlado pela esteira; use as acoes do processo.", "SYSTEM_MANAGED_RECORD"));
 }
 
