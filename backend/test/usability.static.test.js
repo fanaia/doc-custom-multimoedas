@@ -28,3 +28,17 @@ test("tickets de integracao Omie estao registrados", () => {
   assert.match(mapping, /defineOmieMapping\("doc-custom-multimoedas"/);
   assert.match(ui, /Tickets de Integração/);
 });
+
+test("bases sincronizam etapas categorias e contas correntes por tenant", () => {
+  const routes = read("src/routes/docCustom.js");
+  assert.match(routes, /categorias\/sincronizar/);
+  assert.match(routes, /contas-correntes\/sincronizar/);
+  assert.match(routes, /tenantId: accessContext\.tenantId/);
+});
+
+test("templates imagens e configuracoes possuem manutencao operacional", () => {
+  const routes = read("src/routes/docCustom.js");
+  assert.match(routes, /private\.delete\("\/templates\/:id"/);
+  assert.match(routes, /private\.put\("\/imagens\/:id"/);
+  assert.match(routes, /private\.delete\("\/configuracoes\/:id"/);
+});

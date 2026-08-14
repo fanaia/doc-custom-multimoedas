@@ -77,6 +77,25 @@ async function listarEtapas(base, accessContext, options) {
   return [...map.entries()].map(([codigo, descricao]) => ({ codigo, descricao }));
 }
 
+async function listarCategorias(base, accessContext, options) {
+  const data = await call(base, accessContext, "geral/categorias/", "ListarCategorias", {
+    pagina: 1, registros_por_pagina: 900,
+  }, options);
+  return (data?.categoria_cadastro || [])
+    .filter((item) => item?.nao_exibir !== "S")
+    .map((item) => ({ codigo: String(item.codigo || ""), descricao: item.descricao || item.codigo }))
+    .filter((item) => item.codigo);
+}
+
+async function listarContasCorrentes(base, accessContext, options) {
+  const data = await call(base, accessContext, "geral/contacorrente/", "ListarContasCorrentes", {
+    pagina: 1, registros_por_pagina: 900, apenas_importado_api: "N",
+  }, options);
+  return (data?.ListarContasCorrentes || [])
+    .map((item) => ({ codigo: Number(item.nCodCC), descricao: item.descricao || item.codigo_banco || String(item.nCodCC), banco: item.codigo_banco || "", inativo: item.inativo === "S" }))
+    .filter((item) => Number.isFinite(item.codigo) && item.codigo > 0);
+}
+
 async function incluirPdf(base, accessContext, os, filename, pdf, options) {
   const zip = zipSingleFile(filename, pdf);
   const documentKey = crypto.createHash("sha256").update(pdf).digest("hex").slice(0, 40);
@@ -149,6 +168,8 @@ module.exports = {
   downloadAttachment,
   incluirPdf,
   listarAnexos,
+  listarCategorias,
+  listarContasCorrentes,
   listarEtapas,
   obterAnexo,
   testConnection,

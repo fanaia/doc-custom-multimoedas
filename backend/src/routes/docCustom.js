@@ -26,6 +26,23 @@ function processAudit(action) {
   return { entidade: "ProcessoFatura", acao: action };
 }
 
+async function synchronizeCatalog({ modelName, base, accessContext, items, mapItem }) {
+  const Catalog = Model(modelName);
+  const now = new Date();
+  const keys = [];
+  for (const raw of items) {
+    const item = mapItem(raw);
+    keys.push(item.codigo);
+    await Catalog.findOneAndUpdate(
+      { tenantId: accessContext.tenantId, baseOmieId: base._id, codigo: item.codigo },
+      { $set: { ...item, sincronizadaEm: now, status: item.status || "ativo" }, $setOnInsert: { tenantId: accessContext.tenantId, baseOmieId: base._id } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+  }
+  await Catalog.updateMany({ tenantId: accessContext.tenantId, baseOmieId: base._id, codigo: { $nin: keys } }, { $set: { status: "inativo" } });
+  return { total: items.length, synchronizedAt: now };
+}
+
 defineRoutes("/api/doc-custom", (router) => {
   router.public.post("/webhooks/omie/:token", async (req, res) => {
     const result = await receiveWebhook(req.params.token, req.body || {});
@@ -34,13 +51,14 @@ defineRoutes("/api/doc-custom", (router) => {
 
   router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
-    const [bases, imagens, templates, documentos] = await Promise.all([
+    const [bases, imagens, templates, documentos, configuracoes] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
       Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
       Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
       Model("ArtefatoPdf").find({ tenantId }).sort({ geradoEm: -1 }).limit(100).lean(),
+      Model("Configuracao").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
     ]);
-    res.json({ bases, imagens, templates, documentos });
+    res.json({ bases, imagens, templates, documentos, configuracoes });
   });
   router.private.post("/bases", { permission: "bases.manage", audit: { entidade: "BaseOmie", acao: "base-configurada" } }, async (req, res) => {
     const input = req.body || {};
@@ -96,7 +114,17 @@ defineRoutes("/api/doc-custom", (router) => {
       );
     }
     await Stage.updateMany({ tenantId: req.accessContext.tenantId, baseOmieId: base._id, codigo: { $nin: codes } }, { $set: { status: "inativo" } });
-    res.json({ results: stages, synchronizedAt: now });
+    res.json({ results: stages, total: stages.length, synchronizedAt: now });
+  });
+  router.private.post("/bases/:id/categorias/sincronizar", { permission: "bases.manage", audit: { entidade: "CategoriaOmie", acao: "sincronizadas" } }, async (req, res) => {
+    const base = await findScopedBase(req.params.id, req.accessContext, { secrets: true });
+    const items = await gateway.listarCategorias(base, req.accessContext);
+    res.json(await synchronizeCatalog({ modelName: "CategoriaOmie", base, accessContext: req.accessContext, items, mapItem: (item) => item }));
+  });
+  router.private.post("/bases/:id/contas-correntes/sincronizar", { permission: "bases.manage", audit: { entidade: "ContaCorrenteOmie", acao: "sincronizadas" } }, async (req, res) => {
+    const base = await findScopedBase(req.params.id, req.accessContext, { secrets: true });
+    const items = await gateway.listarContasCorrentes(base, req.accessContext);
+    res.json(await synchronizeCatalog({ modelName: "ContaCorrenteOmie", base, accessContext: req.accessContext, items, mapItem: (item) => ({ ...item, status: item.inativo ? "inativo" : "ativo", inativo: undefined }) }));
   });
   router.private.get("/bases/:id/webhook", { permission: "bases.read" }, async (req, res) => {
     res.json(await getWebhookAccess(req.params.id, req.accessContext));
@@ -165,6 +193,27 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.post("/templates/:id/preview", { permission: "templates.manage", audit: { entidade: "Template", acao: "preview" } }, async (req, res) => {
     res.json(await workflow.previewTemplate(req.params.id, req.accessContext, req.body || {}));
   });
+  router.private.get("/templates/:id", { permission: "templates.read" }, async (req, res) => {
+    const template = await Model("Template").findOne({ _id: req.params.id, tenantId: req.accessContext.tenantId });
+    if (!template) throw new GenericError("Template nao encontrado.", { statusCode: 404 });
+    res.json({ template });
+  });
+  router.private.post("/templates", { permission: "templates.manage", audit: { entidade: "Template", acao: "criado" } }, async (req, res) => {
+    const input = req.body || {};
+    const template = await Model("Template").create({ tenantId: req.accessContext.tenantId, codigo: input.codigo, descricao: input.descricao || input.codigo, tipo: input.tipo, versao: Number(input.versao || 1), conteudo: input.conteudo, status: input.status || "ativo" });
+    res.status(201).json({ message: "Template criado com sucesso.", template });
+  });
+  router.private.put("/templates/:id", { permission: "templates.manage", audit: { entidade: "Template", acao: "atualizado" } }, async (req, res) => {
+    const input = req.body || {};
+    const template = await Model("Template").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId }, { $set: { codigo: input.codigo, descricao: input.descricao || input.codigo, tipo: input.tipo, versao: Number(input.versao || 1), conteudo: input.conteudo, status: input.status || "ativo" } }, { new: true, runValidators: true });
+    if (!template) throw new GenericError("Template nao encontrado.", { statusCode: 404 });
+    res.json({ message: "Template atualizado com sucesso.", template });
+  });
+  router.private.delete("/templates/:id", { permission: "templates.manage", audit: { entidade: "Template", acao: "excluido" } }, async (req, res) => {
+    const template = await Model("Template").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId });
+    if (!template) throw new GenericError("Template nao encontrado.", { statusCode: 404 });
+    res.json({ message: "Template excluido com sucesso." });
+  });
 
   router.private.post("/imagens/upload", { permission: "templates.manage", audit: { entidade: "Imagem", acao: "upload" } }, async (req, res) => {
     const input = req.body || {};
@@ -179,7 +228,7 @@ defineRoutes("/api/doc-custom", (router) => {
     const image = await Model("Imagem").create({
       tenantId: req.accessContext.tenantId,
       codigo: String(input.codigo || "").trim(),
-      descricao: String(input.descricao || input.nomeArquivo || "").trim(),
+      descricao: String(input.descricao || "").trim(),
       nomeArquivo: String(input.nomeArquivo || "imagem").trim(),
       contentType,
       tamanho,
@@ -194,6 +243,41 @@ defineRoutes("/api/doc-custom", (router) => {
     res.setHeader("content-type", image.contentType);
     res.setHeader("content-length", String(image.tamanho));
     res.send(Buffer.from(image.conteudo, "base64"));
+  });
+  router.private.put("/imagens/:id", { permission: "templates.manage", audit: { entidade: "Imagem", acao: "atualizada" } }, async (req, res) => {
+    const input = req.body || {};
+    const update = { codigo: String(input.codigo || "").trim(), descricao: String(input.descricao || "").trim(), status: input.status === "inativo" ? "inativo" : "ativo" };
+    if (input.conteudo) {
+      const contentType = String(input.contentType || "").toLowerCase();
+      if (!["image/png", "image/jpeg", "image/gif", "image/webp"].includes(contentType)) throw new GenericError("Formato de imagem nao suportado.", { statusCode: 422 });
+      const conteudo = String(input.conteudo).replace(/^data:[^;]+;base64,/, "");
+      const tamanho = Buffer.byteLength(conteudo, "base64");
+      if (tamanho < 1 || tamanho > 5 * 1024 * 1024) throw new GenericError("A imagem deve ter no maximo 5 MB.", { statusCode: 422 });
+      Object.assign(update, { conteudo, contentType, tamanho, nomeArquivo: String(input.nomeArquivo || "imagem") });
+    }
+    const imagem = await Model("Imagem").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId }, { $set: update }, { new: true, runValidators: true });
+    if (!imagem) throw new GenericError("Imagem nao encontrada.", { statusCode: 404 });
+    res.json({ message: "Imagem atualizada com sucesso.", imagem });
+  });
+  router.private.delete("/imagens/:id", { permission: "templates.manage", audit: { entidade: "Imagem", acao: "excluida" } }, async (req, res) => {
+    const imagem = await Model("Imagem").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId });
+    if (!imagem) throw new GenericError("Imagem nao encontrada.", { statusCode: 404 });
+    res.json({ message: "Imagem excluida com sucesso." });
+  });
+
+  router.private.post("/configuracoes", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "criada" } }, async (req, res) => {
+    const input = { ...(req.body || {}) }; if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else delete input.baseOmieId;
+    const configuracao = await Model("Configuracao").create({ tenantId: req.accessContext.tenantId, ...input });
+    res.status(201).json({ configuracao });
+  });
+  router.private.put("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "atualizada" } }, async (req, res) => {
+    const input = { ...(req.body || {}) }; if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else input.baseOmieId = null;
+    const configuracao = await Model("Configuracao").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId }, { $set: input }, { new: true, runValidators: true });
+    if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ configuracao });
+  });
+  router.private.delete("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "excluida" } }, async (req, res) => {
+    const configuracao = await Model("Configuracao").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId });
+    if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ message: "Configuracao excluida." });
   });
   router.private.post("/templates/obrigatorio/importar", { permission: "templates.manage", audit: { entidade: "Template", acao: "template-obrigatorio-importado" } }, async (req, res) => {
     const result = await importMandatoryTemplate(req.accessContext);

@@ -8,7 +8,7 @@ defineTenantModel({
   basePath: "/imagens",
   schema: {
     codigo: fields.string({ required: true, label: "Codigo", searchable: true }),
-    descricao: fields.string({ required: true, label: "Descricao", searchable: true }),
+    descricao: fields.string({ label: "Descricao", searchable: true }),
     nomeArquivo: fields.string({ required: true, label: "Arquivo" }),
     contentType: fields.enum(["image/png", "image/jpeg", "image/gif", "image/webp"], {
       required: true,
