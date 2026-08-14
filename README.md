@@ -82,6 +82,8 @@ Configure a API Key e o remetente do SendGrid em **Configurações > Integraçõ
 
 Cada Base Omie expõe uma URL no formato `/api/doc-custom/webhooks/omie/:token`. Cadastre essa URL somente no tópico **Etapa da Ordem de Serviço alterada** (`OrdemServico.EtapaAlterada`); o token opaco resolve a base e seu tenant. `OrdemServico.Alterada` continua aceito apenas para compatibilidade e não deve ser cadastrado junto, evitando notificações duplicadas. O backend também registra o alias `/doc-custom/webhooks/omie/:token`, usado após a remoção do prefixo `/api` pelo ingress, e responde ao POST do Omie sem expor uma rota sem token. Inclusão, exclusão e faturamento não precisam ser cadastrados porque não iniciam a esteira. Todas as chamadas Omie e SendGrid são registradas em **Auditoria > Tickets de Integração**, sem credenciais ou conteúdos Base64.
 
+O token e seu hash são estado persistente da Base Omie e não são regenerados durante publicação, leitura da configuração ou alteração de credenciais. Uma nova URL só é criada pela ação explícita **Rotacionar token**. O banco MongoDB e `DOC_CUSTOM_CREDENTIALS_ENCRYPTION_KEY` (ou a chave equivalente da instância) devem permanecer os mesmos entre versões; se esse estado estiver indisponível, a Central retorna erro de configuração sem invalidar silenciosamente a URL cadastrada no Omie.
+
 ## Moedas e fallback
 
 Para moedas PTAX a ordem é obrigatória:
