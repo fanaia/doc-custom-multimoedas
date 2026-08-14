@@ -17,9 +17,13 @@ test("upload de imagem deriva MIME e tamanho no servidor e oferece visualizacao"
 
 test("preview de template exige dados Omie do tenant", () => {
   const workflow = read("src/services/invoiceWorkflow.js");
+  const frontend = read("../frontend/src/main.tsx");
   assert.match(workflow, /previewTemplate/);
   assert.match(workflow, /tenantId: accessContext\.tenantId/);
   assert.match(workflow, /findScopedBase\(input\.baseOmieId/);
+  assert.match(workflow, /numeroOs: input\.numeroOs \|\| input\.codigoOs/);
+  assert.match(frontend, /\{ baseOmieId, numeroOs \}/);
+  assert.match(frontend, /Migalhas de navegação/);
 });
 
 test("tickets de integracao Omie estao registrados", () => {

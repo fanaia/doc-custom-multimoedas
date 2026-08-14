@@ -460,8 +460,7 @@ async function previewTemplate(templateId, accessContext, input, adapters = {}) 
   const variables = await (adapters.buildVariables || buildVariables)({
     tenantId: accessContext.tenantId,
     base,
-    codigoOs: input.codigoOs,
-    numeroOs: input.numeroOs,
+    numeroOs: input.numeroOs || input.codigoOs,
     accessContext,
     adapters,
   });
