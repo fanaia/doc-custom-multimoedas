@@ -39,8 +39,21 @@ test("cadastro de etapas por base usa somente catalogo sincronizado do tenant", 
 test("tickets de integracao Omie estao registrados", () => {
   const mapping = read("src/mappings/omie.js");
   const ui = read("../frontend/central.ui.json");
+  const frontend = read("../frontend/src/main.tsx");
   assert.match(mapping, /defineOmieMapping\("doc-custom-multimoedas"/);
-  assert.match(ui, /Tickets de Integração/);
+  assert.match(frontend, /Tickets de Integração/);
+});
+
+test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
+  const sender = read("src/services/emailSender.js");
+  const credentials = read("src/services/sendgridCredentials.js");
+  const webhook = read("src/services/baseCredentials.js");
+  const frontend = read("../frontend/src/main.tsx");
+  assert.doesNotMatch(sender, /process\.env\.SENDGRID_API_KEY/);
+  assert.match(credentials, /Config\(\)\.findOne\(\{ tenantId/);
+  assert.match(credentials, /apiKeyEncrypted: encrypt\(apiKey\)/);
+  assert.match(webhook, /\/api\/doc-custom\/webhooks\/omie\/\$\{encodeURIComponent\(token\)\}/);
+  assert.match(frontend, /Use esta mesma URL em todos os tópicos desta base/);
 });
 
 test("bases sincronizam etapas categorias e contas correntes por tenant", () => {
