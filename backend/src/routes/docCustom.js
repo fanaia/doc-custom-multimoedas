@@ -37,7 +37,7 @@ defineRoutes("/api/doc-custom", (router) => {
     const [bases, imagens, templates, documentos] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
       Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
-      Model("Template").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
+      Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
       Model("ArtefatoPdf").find({ tenantId }).sort({ geradoEm: -1 }).limit(100).lean(),
     ]);
     res.json({ bases, imagens, templates, documentos });
