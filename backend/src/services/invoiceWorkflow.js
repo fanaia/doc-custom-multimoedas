@@ -54,18 +54,18 @@ async function acquireLock(id, accessContext) {
   const now = new Date();
   const token = generateToken(18);
   const lockMs = Math.max(120_000, Number(process.env.PROCESS_LOCK_MS || 15 * 60_000));
-  const process = await Model("ProcessoFatura").findOneAndUpdate({
+  const lockedProcess = await Model("ProcessoFatura").findOneAndUpdate({
     ...scopedIdFilter(registry.getModel("ProcessoFatura"), id, accessContext),
     $or: [{ lockUntil: null }, { lockUntil: { $exists: false } }, { lockUntil: { $lt: now } }],
   }, {
     $set: { lockToken: token, lockUntil: new Date(now.getTime() + lockMs) },
     $inc: { tentativas: 1 },
   }, { new: true }).select("+tenantId +lockToken");
-  if (!process) throw new GenericError("Processo em execucao; aguarde antes de tentar novamente.", {
+  if (!lockedProcess) throw new GenericError("Processo em execucao; aguarde antes de tentar novamente.", {
     statusCode: 409,
     code: "PROCESS_LOCKED",
   });
-  return { process, token };
+  return { process: lockedProcess, token };
 }
 
 async function releaseLock(process, token) {
@@ -130,6 +130,7 @@ async function generateInvoice(process, actor, adapters = {}) {
     tenantId: String(process.tenantId),
     base,
     codigoOs: process.codigoOs,
+    numeroOs: process.numeroOs,
     processoId: process._id,
     accessContext,
     adapters,
@@ -163,6 +164,7 @@ async function generateInvoice(process, actor, adapters = {}) {
     $set: {
       etapa: "Aprovar fatura",
       status: "ativo",
+      codigoOs: String(variables.os.Cabecalho.nCodOS),
       numeroOs: String(variables.os.Cabecalho.cNumOS),
       clienteNome: String(variables.cliente.nome_fantasia || variables.cliente.razao_social || ""),
       artefatoPdfId: artifact._id,
