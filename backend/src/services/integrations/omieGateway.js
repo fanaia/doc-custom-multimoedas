@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const { GenericError } = require("@oondemand/oon-core-back");
 const { credentialsFor } = require("../baseCredentials");
+const tickets = require("../integrationTickets");
 const { zipSingleFile } = require("../zipFile");
 
 const BASE_URL = "https://app.omie.com.br/api/v1";
@@ -21,16 +22,23 @@ async function call(baseOrId, accessContext, endpoint, callName, param, options 
     throw new GenericError("Base Omie inativa.", { statusCode: 422, code: "OMIE_BASE_INACTIVE" });
   }
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  const response = await fetchImpl(`${String(options.baseUrl || BASE_URL).replace(/\/+$/, "")}/${endpoint.replace(/^\/+/, "")}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ call: callName, app_key: appKey, app_secret: appSecret, param: Array.isArray(param) ? param : [param] }),
-    signal: AbortSignal.timeout(Number(options.timeoutMs || 15_000)),
-  });
-  let data;
-  try { data = await response.json(); } catch { data = {}; }
-  if (!response.ok || data?.faultstring) throw externalError(callName, response, data);
-  return data;
+  const ticket = options.skipTicket ? null : await tickets.start({ tenantId: base.tenantId || accessContext.tenantId, provider: "omie", operacao: callName, baseOmieId: base._id, processoId: options.processoId, requisicao: { endpoint, param } });
+  try {
+    const response = await fetchImpl(`${String(options.baseUrl || BASE_URL).replace(/\/+$/, "")}/${endpoint.replace(/^\/+/, "")}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ call: callName, app_key: appKey, app_secret: appSecret, param: Array.isArray(param) ? param : [param] }),
+      signal: AbortSignal.timeout(Number(options.timeoutMs || 15_000)),
+    });
+    let data;
+    try { data = await response.json(); } catch { data = {}; }
+    if (!response.ok || data?.faultstring) throw externalError(callName, response, data);
+    await tickets.success(ticket, { resposta: { httpStatus: response.status } });
+    return data;
+  } catch (error) {
+    await tickets.failure(ticket, error);
+    throw error;
+  }
 }
 
 function testConnection(baseOrId, accessContext, options) {

@@ -78,7 +78,9 @@ O conteúdo EJS versionado fica em `backend/src/templates/invoice-os-v1.html`. C
 
 8. Use `POST /api/doc-custom/gatilhos/:id/preview` com `baseOmieId` e `numeroOs` para validar HTML, PDF, assunto e corpo com o mesmo montador usado no processo real.
 
-Configurações de e-mail reconhecidas: `email-from`, `email-from-nome`, `email-cc`, `email-copia` e `email-bcc`. O template obrigatório também usa `endereco-linha1`, `endereco-linha2`, `cidade`, `razao-social`, `pagamento-banco`, `pagamento-agencia`, `pagamento-cc`, `pagamento-swift` e `pagamento-iban`.
+Configure a API Key e o remetente do SendGrid em **Configurações > Integrações**. A chave é criptografada por tenant e nunca volta para o frontend; `email-from` e `email-from-nome` podem sobrescrever o remetente padrão, enquanto `email-cc`, `email-copia` e `email-bcc` complementam os destinatários. O template obrigatório também usa `endereco-linha1`, `endereco-linha2`, `cidade`, `razao-social`, `pagamento-banco`, `pagamento-agencia`, `pagamento-cc`, `pagamento-swift` e `pagamento-iban`.
+
+Cada Base Omie expõe uma URL no formato `/api/doc-custom/webhooks/omie/:token`. A mesma URL da base deve ser cadastrada em todos os tópicos Omie; o token opaco resolve a base e seu tenant. Todas as chamadas Omie e SendGrid são registradas em **Auditoria > Tickets de Integração**, sem credenciais ou conteúdos Base64.
 
 ## Moedas e fallback
 

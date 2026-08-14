@@ -35,8 +35,10 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
       "Gatilho",
       "GatilhoBase",
       "Imagem",
+      "IntegracaoTicket",
       "Moeda",
       "ProcessoFatura",
+      "SendGridConfig",
       "Template",
     ],
   );
@@ -54,6 +56,7 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
   for (const secret of ["appKeyEncrypted", "appSecretEncrypted", "webhookTokenEncrypted", "webhookTokenHash"]) {
     assert.equal(Base.mongooseModel.schema.path(secret).options.select, false);
   }
+  assert.equal(registry.getModel("SendGridConfig").mongooseModel.schema.path("apiKeyEncrypted").options.select, false);
 });
 
 test("normalização de webhook é canônica e preserva id do evento", () => {

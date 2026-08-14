@@ -2,14 +2,15 @@
 
 const { GenericError } = require("@oondemand/oon-core-back");
 const { isValidEmail } = require("./recipients");
+const tickets = require("./integrationTickets");
 
 function attachmentBytes(attachments = []) {
   return attachments.reduce((total, item) => total + Buffer.byteLength(item.contentBase64 || "", "base64"), 0);
 }
 
 async function sendEmail(message, options = {}) {
-  const apiKey = String(options.apiKey || process.env.SENDGRID_API_KEY || "").trim();
-  if (!apiKey) throw new GenericError("Configure SENDGRID_API_KEY para enviar e-mail.", {
+  const apiKey = String(options.apiKey || "").trim();
+  if (!apiKey) throw new GenericError("Configure a integração SendGrid para este tenant.", {
     statusCode: 503,
     code: "EMAIL_PROVIDER_REQUIRED",
   });
@@ -46,23 +47,22 @@ async function sendEmail(message, options = {}) {
     })),
   };
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  const response = await fetchImpl("https://api.sendgrid.com/v3/mail/send", {
-    method: "POST",
-    headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!response.ok) {
-    throw new GenericError(`Provedor de e-mail recusou o envio (HTTP ${response.status}).`, {
-      statusCode: 502,
-      code: "EMAIL_PROVIDER_ERROR",
+  const ticket = options.tenantId ? await tickets.start({ tenantId: options.tenantId, provider: "sendgrid", operacao: "mail.send", processoId: options.processoId, requisicao: { to: message.to, cc: message.cc, bcc: message.bcc, subject: message.subject, attachments: payload.attachments.map(item => ({ filename: item.filename, type: item.type })) } }) : null;
+  try {
+    const response = await fetchImpl("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20_000),
     });
+    if (!response.ok) throw new GenericError(`Provedor de e-mail recusou o envio (HTTP ${response.status}).`, { statusCode: 502, code: "EMAIL_PROVIDER_ERROR" });
+    const id = response.headers.get("x-message-id") || response.headers.get("x-request-id") || "accepted";
+    await tickets.success(ticket, { resposta: { httpStatus: response.status }, codigoExterno: id });
+    return { provider: "sendgrid", id, acceptedAt: new Date() };
+  } catch (error) {
+    await tickets.failure(ticket, error);
+    throw error;
   }
-  return {
-    provider: "sendgrid",
-    id: response.headers.get("x-message-id") || response.headers.get("x-request-id") || "accepted",
-    acceptedAt: new Date(),
-  };
 }
 
 module.exports = { attachmentBytes, sendEmail };
