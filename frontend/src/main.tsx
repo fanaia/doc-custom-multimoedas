@@ -6,7 +6,7 @@ import app from "../../central.app.json";
 import ui from "../central.ui.json";
 
 type Item = Record<string, any> & { _id: string };
-type Catalogs = { bases: Item[]; imagens: Item[]; templates: Item[]; documentos: Item[]; configuracoes: Item[]; etapas: Item[]; categorias: Item[]; contasCorrentes: Item[] };
+type Catalogs = { bases: Item[]; imagens: Item[]; templates: Item[]; documentos: Item[]; configuracoes: Item[]; etapas: Item[]; categorias: Item[]; contasCorrentes: Item[]; gatilhos: Item[]; mapeamentos: Item[] };
 
 const card: React.CSSProperties = { background: "white", border: "1px solid #dce3ea", borderRadius: 12, padding: 18 };
 const input: React.CSSProperties = { border: "1px solid #cbd5e1", borderRadius: 8, padding: "10px 12px", width: "100%" };
@@ -109,6 +109,38 @@ function TemplatesPage() {
   </div>;
 }
 
+function GatilhosPage() {
+  const { http } = useOonApi(); const query = useCatalogs(); const cache = useQueryClient();
+  const [gatilhoId,setGatilhoId]=useState(""); const [editingTrigger,setEditingTrigger]=useState<Item|null>(); const [editing,setEditing]=useState<Item|null>(); const [baseOmieId,setBaseOmieId]=useState(""); const [message,setMessage]=useState(""); const [error,setError]=useState("");
+  const selectedTrigger = query.data?.gatilhos.filter(item=>item._id===gatilhoId)[0];
+  const rows=(query.data?.mapeamentos||[]).filter(item=>String(item.gatilhoId?._id||item.gatilhoId)===gatilhoId);
+  const selectedBase=baseOmieId || String(editing?.baseOmieId?._id||editing?.baseOmieId||"");
+  const stages=(query.data?.etapas||[]).filter(item=>item.status==="ativo"&&String(item.baseOmieId?._id||item.baseOmieId)===selectedBase);
+  const finish=(text:string)=>{setMessage(text);setError("");setEditing(undefined);setBaseOmieId("");cache.invalidateQueries({queryKey:["doc-custom-catalogs"]});};
+  const saveTrigger=useMutation({mutationFn:async({id,payload}:any)=>id?(await http.put(`/api/doc-custom/gatilhos/${id}`,payload)).data:(await http.post("/api/doc-custom/gatilhos",payload)).data,onSuccess:data=>{setEditingTrigger(undefined);finish(data.message||"Gatilho salvo com sucesso.");},onError:e=>setError(errorText(e))});
+  const removeTrigger=useMutation({mutationFn:async(id:string)=>(await http.delete(`/api/doc-custom/gatilhos/${id}`)).data,onSuccess:data=>{setGatilhoId("");finish(data.message||"Gatilho excluído.");},onError:e=>setError(errorText(e))});
+  const save=useMutation({mutationFn:async({id,payload}:any)=>id?(await http.put(`/api/doc-custom/gatilhos/${gatilhoId}/bases/${id}`,payload)).data:(await http.post(`/api/doc-custom/gatilhos/${gatilhoId}/bases`,payload)).data,onSuccess:data=>finish(data.message||"Etapas salvas com sucesso."),onError:e=>{setMessage("");setError(errorText(e));}});
+  const remove=useMutation({mutationFn:async(id:string)=>(await http.delete(`/api/doc-custom/gatilhos/${gatilhoId}/bases/${id}`)).data,onSuccess:data=>finish(data.message||"Cadastro excluído."),onError:e=>setError(errorText(e))});
+  function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();save.mutate({id:editing?._id,payload:Object.fromEntries(new FormData(event.currentTarget))});}
+  function submitTrigger(event:FormEvent<HTMLFormElement>){event.preventDefault();saveTrigger.mutate({id:editingTrigger?._id,payload:Object.fromEntries(new FormData(event.currentTarget))});}
+  function beginEdit(item:Item){setEditing(item);setBaseOmieId(String(item.baseOmieId?._id||item.baseOmieId));setMessage("");setError("");}
+  const templateOptions=(tipo:string)=>query.data?.templates.filter(item=>item.tipo===tipo&&item.status==="ativo")||[];
+  return <div><Header title="Gatilhos" description="Cadastre os documentos e as etapas de envio, erro e sucesso para cada Base Omie."/><Notice message={message} error={error}/>
+    <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}><button style={button} onClick={()=>setEditingTrigger({} as Item)}>+ Novo gatilho</button></div>
+    {editingTrigger!==undefined&&<form onSubmit={submitTrigger} style={{...card,display:"grid",gridTemplateColumns:"1fr 2fr",gap:12,marginBottom:18}}><input style={input} name="codigo" defaultValue={editingTrigger?.codigo||""} placeholder="Código" required/><input style={input} name="descricao" defaultValue={editingTrigger?.descricao||""} placeholder="Descrição" required/>{(["templateDocumentoId","templateAssuntoId","templateCorpoId"] as const).map((field,index)=>{const tipo=["documento","assunto","corpo-email"][index];return <select style={input} name={field} key={field} defaultValue={editingTrigger?.[field]?._id||editingTrigger?.[field]||""} required><option value="">{["Template da fatura","Template do assunto","Template do corpo do e-mail"][index]}</option>{templateOptions(tipo).map(item=><option key={item._id} value={item._id}>{item.descricao} · v{item.versao}</option>)}</select>;})}<select style={input} name="status" defaultValue={editingTrigger?.status||"ativo"}><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select><div style={{gridColumn:"1/-1",display:"flex",gap:8}}><button style={button} disabled={saveTrigger.isPending}>{saveTrigger.isPending?"Salvando...":"Salvar gatilho"}</button><button type="button" style={secondary} onClick={()=>setEditingTrigger(undefined)}>Cancelar</button></div></form>}
+    <div style={{...card,marginBottom:18}}><label htmlFor="gatilho"><strong>Gatilho</strong></label><div style={{display:"flex",gap:8,alignItems:"center",marginTop:8}}><select id="gatilho" style={input} value={gatilhoId} onChange={e=>{setGatilhoId(e.target.value);setEditing(undefined);setBaseOmieId("");}}><option value="">Selecione um gatilho</option>{query.data?.gatilhos.map(item=><option key={item._id} value={item._id}>{item.descricao} ({item.codigo})</option>)}</select>{selectedTrigger&&<><button style={secondary} onClick={()=>setEditingTrigger(selectedTrigger)}>Alterar gatilho</button><button style={danger} onClick={()=>confirm("Excluir este gatilho e seus cadastros de etapas?")&&removeTrigger.mutate(selectedTrigger._id)}>Excluir gatilho</button></>}</div></div>
+    {selectedTrigger&&<><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div><strong>{selectedTrigger.descricao}</strong><div style={{color:"#64748b"}}>Uma configuração por Base Omie.</div></div><button style={button} onClick={()=>{setEditing({} as Item);setBaseOmieId("");}}>+ Cadastrar etapas da base</button></div>
+    {editing!==undefined&&<form onSubmit={submit} style={{...card,display:"grid",gridTemplateColumns:"repeat(5,minmax(0,1fr))",gap:12,marginBottom:18}}>
+      <select aria-label="Base Omie" style={input} name="baseOmieId" value={selectedBase} onChange={e=>setBaseOmieId(e.target.value)} required><option value="">Base Omie</option>{query.data?.bases.filter(base=>base.status==="ativo").map(base=><option key={base._id} value={base._id}>{base.nome}</option>)}</select>
+      {(["etapaEnvio","etapaErro","etapaSucesso"] as const).map((field,index)=><select aria-label={["Etapa de envio","Etapa de erro","Etapa de sucesso"][index]} style={input} name={field} key={`${field}-${selectedBase}`} defaultValue={editing?.[field]||""} disabled={!selectedBase} required><option value="">{["Etapa de envio","Etapa de erro","Etapa de sucesso"][index]}</option>{stages.map(stage=><option key={stage._id} value={stage.codigo}>{stage.descricao} ({stage.codigo})</option>)}</select>)}
+      <select style={input} name="status" defaultValue={editing?.status||"ativo"}><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select>
+      {selectedBase&&stages.length===0&&<p style={{gridColumn:"1/-1",color:"#c92a2a"}}>Esta base ainda não possui etapas ativas. Sincronize as etapas em Bases Omie antes de cadastrar.</p>}
+      <div style={{gridColumn:"1/-1",display:"flex",gap:8}}><button style={button} disabled={save.isPending||stages.length<3}>{save.isPending?"Salvando...":"Salvar etapas"}</button><button type="button" style={secondary} onClick={()=>{setEditing(undefined);setBaseOmieId("");}}>Cancelar</button></div>
+    </form>}
+    <div style={card}><table style={{width:"100%"}}><thead><tr><th align="left">Base Omie</th><th align="left">Etapa de envio</th><th align="left">Etapa de erro</th><th align="left">Etapa de sucesso</th><th align="left">Status</th><th align="left">Ações</th></tr></thead><tbody>{rows.map(item=><tr key={item._id}><td>{item.baseOmieId?.nome||"-"}</td><td>{item.etapaEnvio}</td><td>{item.etapaErro}</td><td>{item.etapaSucesso}</td><td>{item.status}</td><td><button style={secondary} onClick={()=>beginEdit(item)}>Alterar</button> <button style={danger} onClick={()=>confirm("Excluir as etapas desta base?")&&remove.mutate(item._id)}>Excluir</button></td></tr>)}{rows.length===0&&<tr><td colSpan={6} style={{padding:24,color:"#64748b"}}>Nenhuma base configurada para este gatilho.</td></tr>}</tbody></table></div></>}
+  </div>;
+}
+
 function ConfiguracoesPage(){
   const {http}=useOonApi();const query=useCatalogs();const cache=useQueryClient();const [baseFilter,setBaseFilter]=useState("");const [editing,setEditing]=useState<Item|null>();const [message,setMessage]=useState("");const [error,setError]=useState("");
   const finish=(text:string)=>{setMessage(text);setError("");setEditing(undefined);cache.invalidateQueries({queryKey:["doc-custom-catalogs"]});};
@@ -123,7 +155,7 @@ function ConfiguracoesPage(){
 
 function DocumentosPage() { const query=useCatalogs(); return <div><Header title="Documentos gerados" description="Documentos criados automaticamente pelos templates e pela esteira de processamento."/><div style={card}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th align="left">Arquivo</th><th align="left">Template</th><th align="left">Tamanho</th><th align="left">Gerado em</th></tr></thead><tbody>{query.data?.documentos.map(d=><tr key={d._id}><td>{d.nomeArquivo}</td><td>{d.templateCodigo} v{d.templateVersao}</td><td>{(Number(d.tamanho)/1024).toFixed(1)} KB</td><td>{new Date(d.geradoEm).toLocaleString("pt-BR")}</td></tr>)}</tbody></table></div></div> }
 
-const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "EtapaOmie", "CategoriaOmie", "ContaCorrenteOmie"]);
+const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "EtapaOmie", "CategoriaOmie", "ContaCorrenteOmie", "Gatilho"]);
 const uiManifest = {
   ...ui,
   collections: ui.collections.filter((collection) => !replaced.has(collection.model)),
@@ -136,6 +168,7 @@ const uiManifest = {
     { id: "categorias-omie-operacao", path: "/categorias-omie", label: "Categorias Omie", title: "Categorias Omie", section: "Configurações", component: "CategoriasOmiePage", order: 13, hidden: true, permissions: ["bases.read"] },
     { id: "contas-correntes-omie-operacao", path: "/contas-correntes-omie", label: "Contas correntes Omie", title: "Contas correntes Omie", section: "Configurações", component: "ContasCorrentesOmiePage", order: 14, hidden: true, permissions: ["bases.read"] },
     { id: "templates-operacao", path: "/templates", label: "Templates EJS", title: "Templates EJS", section: "Documentos", component: "TemplatesPage", order: 20, permissions: ["templates.read"] },
+    { id: "gatilhos-operacao", path: "/gatilhos", label: "Gatilhos", title: "Gatilhos", section: "Documentos", component: "GatilhosPage", order: 21, permissions: ["triggers.read"] },
     { id: "imagens-operacao", path: "/imagens", label: "Imagens", title: "Imagens", section: "Documentos", component: "ImagensPage", order: 30, permissions: ["templates.read"] },
     { id: "documentos-operacao", path: "/documentos-gerados", label: "Documentos gerados", title: "Documentos gerados", section: "Documentos", component: "DocumentosPage", order: 40, permissions: ["process.read"] },
   ],
@@ -145,5 +178,5 @@ startCentralFromManifest({ app, ui: uiManifest as Parameters<typeof startCentral
   apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
   meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
-  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, ImagensPage, TemplatesPage, DocumentosPage },
+  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, TemplatesPage, DocumentosPage },
 });

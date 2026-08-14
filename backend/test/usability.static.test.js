@@ -26,6 +26,16 @@ test("preview de template exige dados Omie do tenant", () => {
   assert.match(frontend, /Migalhas de navegação/);
 });
 
+test("cadastro de etapas por base usa somente catalogo sincronizado do tenant", () => {
+  const routes = read("src/routes/docCustom.js");
+  const frontend = read("../frontend/src/main.tsx");
+  assert.match(routes, /validateMappingInput/);
+  assert.match(routes, /tenantId, baseOmieId: base\._id, codigo: \{ \$in: stages \}, status: "ativo"/);
+  assert.match(routes, /Esta base ja possui etapas cadastradas neste gatilho/);
+  assert.match(frontend, /Cadastrar etapas da base/);
+  assert.match(frontend, /item\.status==="ativo"&&String\(item\.baseOmieId/);
+});
+
 test("tickets de integracao Omie estao registrados", () => {
   const mapping = read("src/mappings/omie.js");
   const ui = read("../frontend/central.ui.json");

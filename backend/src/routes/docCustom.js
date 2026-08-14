@@ -69,7 +69,7 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.get("/operacao/catalogos", { permission: "dashboard.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     await ensureDefaultCurrencies(tenantId);
-    const [bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes] = await Promise.all([
+    const [bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
       Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
       Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
@@ -78,8 +78,82 @@ defineRoutes("/api/doc-custom", (router) => {
       Model("EtapaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("CategoriaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("ContaCorrenteOmie").find({ tenantId }).select("baseOmieId codigo descricao banco status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
+      Model("Gatilho").find({ tenantId }).populate("templateDocumentoId templateAssuntoId templateCorpoId", "codigo descricao tipo versao").sort({ descricao: 1 }).lean(),
+      Model("GatilhoBase").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ createdAt: 1 }).lean(),
     ]);
-    res.json({ bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes });
+    res.json({ bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos });
+  });
+
+  async function validateMappingInput(input, tenantId, triggerId) {
+    const base = await Model("BaseOmie").findOne({ _id: input.baseOmieId, tenantId, status: "ativo" });
+    if (!base) throw new GenericError("Base Omie ativa nao encontrada.", { statusCode: 422, code: "TENANT_REFERENCE_DENIED" });
+    const trigger = await Model("Gatilho").exists({ _id: triggerId, tenantId });
+    if (!trigger) throw new GenericError("Gatilho nao encontrado.", { statusCode: 404 });
+    const stages = [input.etapaEnvio, input.etapaErro, input.etapaSucesso].map((value) => String(value || ""));
+    if (new Set(stages).size !== 3 || stages.some((value) => !value)) {
+      throw new GenericError("Selecione etapas diferentes para envio, erro e sucesso.", { statusCode: 422 });
+    }
+    const count = await Model("EtapaOmie").countDocuments({ tenantId, baseOmieId: base._id, codigo: { $in: stages }, status: "ativo" });
+    if (count !== 3) throw new GenericError("Selecione somente etapas ativas sincronizadas para esta Base Omie.", { statusCode: 422, code: "OMIE_STAGE_INVALID" });
+    return { baseOmieId: base._id, etapaEnvio: stages[0], etapaErro: stages[1], etapaSucesso: stages[2], status: input.status === "inativo" ? "inativo" : "ativo" };
+  }
+
+  async function validateTriggerInput(input, tenantId) {
+    const expected = [[input.templateDocumentoId, "documento"], [input.templateAssuntoId, "assunto"], [input.templateCorpoId, "corpo-email"]];
+    for (const [id, tipo] of expected) {
+      const template = await Model("Template").exists({ _id: id, tenantId, tipo, status: "ativo" });
+      if (!template) throw new GenericError(`Selecione um template ativo do tipo ${tipo}.`, { statusCode: 422, code: "TENANT_REFERENCE_DENIED" });
+    }
+    return { codigo: String(input.codigo || "").trim().toLowerCase(), descricao: String(input.descricao || "").trim(), tipoDocumento: "ordem-servico", templateDocumentoId: input.templateDocumentoId, templateAssuntoId: input.templateAssuntoId, templateCorpoId: input.templateCorpoId, status: input.status === "inativo" ? "inativo" : "ativo" };
+  }
+
+  router.private.post("/gatilhos", { permission: "triggers.manage", audit: { entidade: "Gatilho", acao: "criado" } }, async (req, res) => {
+    const values = await validateTriggerInput(req.body || {}, req.accessContext.tenantId);
+    const trigger = await Model("Gatilho").create({ tenantId: req.accessContext.tenantId, ...values });
+    res.status(201).json({ message: "Gatilho criado com sucesso.", trigger });
+  });
+
+  router.private.put("/gatilhos/:id", { permission: "triggers.manage", audit: { entidade: "Gatilho", acao: "atualizado" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const values = await validateTriggerInput(req.body || {}, tenantId);
+    const trigger = await Model("Gatilho").findOneAndUpdate({ _id: req.params.id, tenantId }, { $set: values }, { new: true, runValidators: true });
+    if (!trigger) throw new GenericError("Gatilho nao encontrado.", { statusCode: 404 });
+    res.json({ message: "Gatilho atualizado com sucesso.", trigger });
+  });
+
+  router.private.delete("/gatilhos/:id", { permission: "triggers.manage", audit: { entidade: "Gatilho", acao: "excluido" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const inUse = await Model("ProcessoFatura").exists({ tenantId, gatilhoId: req.params.id });
+    if (inUse) throw new GenericError("O gatilho possui processos e nao pode ser excluido; altere o status para inativo.", { statusCode: 409 });
+    const trigger = await Model("Gatilho").findOneAndDelete({ _id: req.params.id, tenantId });
+    if (!trigger) throw new GenericError("Gatilho nao encontrado.", { statusCode: 404 });
+    await Model("GatilhoBase").deleteMany({ tenantId, gatilhoId: req.params.id });
+    res.json({ message: "Gatilho excluido com sucesso." });
+  });
+
+  router.private.post("/gatilhos/:id/bases", { permission: "triggers.manage", audit: { entidade: "GatilhoBase", acao: "criado" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const values = await validateMappingInput(req.body || {}, tenantId, req.params.id);
+    const existing = await Model("GatilhoBase").exists({ tenantId, gatilhoId: req.params.id, baseOmieId: values.baseOmieId });
+    if (existing) throw new GenericError("Esta base ja possui etapas cadastradas neste gatilho.", { statusCode: 409 });
+    const mapping = await Model("GatilhoBase").create({ tenantId, gatilhoId: req.params.id, ...values });
+    res.status(201).json({ message: "Etapas da base cadastradas com sucesso.", mapping });
+  });
+
+  router.private.put("/gatilhos/:id/bases/:mappingId", { permission: "triggers.manage", audit: { entidade: "GatilhoBase", acao: "atualizado" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const values = await validateMappingInput(req.body || {}, tenantId, req.params.id);
+    const duplicate = await Model("GatilhoBase").exists({ tenantId, gatilhoId: req.params.id, baseOmieId: values.baseOmieId, _id: { $ne: req.params.mappingId } });
+    if (duplicate) throw new GenericError("Esta base ja possui etapas cadastradas neste gatilho.", { statusCode: 409 });
+    const mapping = await Model("GatilhoBase").findOneAndUpdate({ _id: req.params.mappingId, tenantId, gatilhoId: req.params.id }, { $set: values }, { new: true, runValidators: true });
+    if (!mapping) throw new GenericError("Cadastro de etapas nao encontrado.", { statusCode: 404 });
+    res.json({ message: "Etapas da base atualizadas com sucesso.", mapping });
+  });
+
+  router.private.delete("/gatilhos/:id/bases/:mappingId", { permission: "triggers.manage", audit: { entidade: "GatilhoBase", acao: "excluido" } }, async (req, res) => {
+    const mapping = await Model("GatilhoBase").findOneAndDelete({ _id: req.params.mappingId, tenantId: req.accessContext.tenantId, gatilhoId: req.params.id });
+    if (!mapping) throw new GenericError("Cadastro de etapas nao encontrado.", { statusCode: 404 });
+    res.json({ message: "Cadastro de etapas excluido com sucesso." });
   });
   router.private.post("/bases", { permission: "bases.manage", audit: { entidade: "BaseOmie", acao: "base-configurada" } }, async (req, res) => {
     const input = req.body || {};
