@@ -1,0 +1,12 @@
+{
+  "SERVICE_NAME": "doc-custom-multimoedas",
+  "NAMESPACE": "doc-custom-multimoedas",
+  "IMAGE": "ghcr.io/oondemand/doc-custom-multimoedas-backend",
+  "IMAGE_TAG": "latest",
+  "HOST": "doc-custom-multimoedas.oondemand.com",
+  "CENTRAL_ATIVACAO_URL": "https://central-ativacao.example.com",
+  "APP_CODE": "doc-custom-multimoedas",
+  "REPLICAS": "1",
+  "HPA_MIN": "1",
+  "HPA_MAX": "3"
+}

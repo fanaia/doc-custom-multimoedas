@@ -1,0 +1,67 @@
+{
+  "$schema": "./node_modules/@oondemand/create-central-oon/schemas/central.app.schema.json",
+  "schemaVersion": 1,
+  "id": "doc-custom-multimoedas",
+  "name": "Doc Custom Multimoedas",
+  "slug": "doc-custom-multimoedas",
+  "appKind": "member-central",
+  "tenancyModel": "single_tenant",
+  "availability": "licensed",
+  "accessMode": "explicit_users",
+  "authorizationMode": "rbac",
+  "deploymentMode": "dedicated",
+  "modules": {
+    "collections": true,
+    "documents": false,
+    "pipelines": false,
+    "integrations": false,
+    "omie": false,
+    "assistants": false,
+    "currencies": false
+  },
+  "capabilities": [
+    "core.collections"
+  ],
+  "compatibility": {
+    "core": {
+      "minVersion": "0.3.45",
+      "maxVersionExclusive": "0.5.0"
+    }
+  },
+  "activation": {
+    "enabled": true,
+    "configurationVersion": 1,
+    "fields": []
+  },
+  "rbac": {
+    "invitationTtlHours": 72,
+    "permissions": [],
+    "roles": [
+      {
+        "code": "admin",
+        "name": "Administrador",
+        "description": "Administra usuários, acessos e todas as operações da Central.",
+        "admin": true,
+        "permissions": ["*"]
+      },
+      {
+        "code": "operator",
+        "name": "Operador",
+        "description": "Opera a Central conforme as permissões de negócio declaradas pelo projeto.",
+        "permissions": []
+      },
+      {
+        "code": "developer",
+        "name": "Desenvolvedor",
+        "description": "Preserva a migração dos perfis de desenvolvimento existentes; permissões canônicas são declaradas pelo projeto.",
+        "permissions": []
+      },
+      {
+        "code": "viewer",
+        "name": "Consulta",
+        "description": "Perfil base para acesso somente às consultas explicitamente permitidas.",
+        "permissions": []
+      }
+    ]
+  }
+}
