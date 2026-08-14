@@ -29,11 +29,17 @@ function valueAt(payload, paths) {
 function normalizeWebhook(payload = {}) {
   const topic = String(valueAt(payload, ["topic", "eventType", "event_type", "evento", "message.topic"]) || "");
   const ping = Boolean(payload.ping || /ping|teste|test/i.test(topic));
+  const numeroOs = valueAt(payload, [
+    "numeroOrdemServico", "numero_os", "numeroOs",
+    "event.numeroOrdemServico", "event.numero_os", "event.numeroOs",
+    "data.numeroOrdemServico", "data.numero_os", "data.numeroOs",
+    "entity.numeroOrdemServico", "entity.numero_os", "entity.numeroOs",
+  ]);
   const codigoOs = valueAt(payload, [
-    "numeroOrdemServico", "nCodOS", "codigo_os", "codigoOs", "idOrdemServico",
-    "event.numeroOrdemServico", "event.nCodOS", "event.codigo_os", "event.codigoOs", "event.idOrdemServico",
-    "data.numeroOrdemServico", "data.nCodOS", "data.idOrdemServico",
-    "entity.numeroOrdemServico", "entity.nCodOS", "entity.idOrdemServico",
+    "idOrdemServico", "nCodOS", "codigo_os", "codigoOs",
+    "event.idOrdemServico", "event.nCodOS", "event.codigo_os", "event.codigoOs",
+    "data.idOrdemServico", "data.nCodOS", "data.codigo_os", "data.codigoOs",
+    "entity.idOrdemServico", "entity.nCodOS", "entity.codigo_os", "entity.codigoOs",
   ]);
   const etapa = valueAt(payload, [
     "cEtapa", "etapa", "event.cEtapa", "event.etapa", "data.cEtapa", "entity.cEtapa",
@@ -42,7 +48,7 @@ function normalizeWebhook(payload = {}) {
   const eventId = String(valueAt(payload, [
     "eventId", "event_id", "messageId", "message_id", "id", "event.id", "message.id",
   ]) || hash(canonical(payload)));
-  return { appKey: String(appKey || ""), codigoOs: String(codigoOs || ""), etapa: String(etapa || ""), eventId, ping, topic };
+  return { appKey: String(appKey || ""), codigoOs: String(codigoOs || numeroOs || ""), numeroOs: String(numeroOs || ""), etapa: String(etapa || ""), eventId, ping, topic };
 }
 
 function isOsStageEvent(topic) {
@@ -68,6 +74,7 @@ async function createProcess({ base, mapping, trigger, normalized }) {
       idempotencyKey: key,
       eventoExternoId: normalized.eventId,
       codigoOs: normalized.codigoOs,
+      numeroOs: normalized.numeroOs,
       etapa: "Aprovar processamento",
       status: "ativo",
       iniciadoEm: new Date(),
@@ -105,7 +112,7 @@ async function receiveWebhook(token, payload) {
     provider: "omie",
     operacao: "webhook.receive",
     baseOmieId: base._id,
-    requisicao: { topic: normalized.topic, eventId: normalized.eventId, codigoOs: normalized.codigoOs, etapa: normalized.etapa },
+    requisicao: { topic: normalized.topic, eventId: normalized.eventId, codigoOs: normalized.codigoOs, numeroOs: normalized.numeroOs, etapa: normalized.etapa },
   });
   try {
     let response;
