@@ -21,7 +21,24 @@ function loadModels() {
 test("todas as models de negócio têm escopo e campo de tenant", () => {
   loadModels();
   const entries = registry.listModels();
-  assert.equal(entries.length, 12);
+  assert.deepEqual(
+    entries.map((entry) => entry.name).sort(),
+    [
+      "ArtefatoPdf",
+      "BaseOmie",
+      "Configuracao",
+      "CotacaoMoeda",
+      "EtapaOmie",
+      "EventoProcesso",
+      "Gatilho",
+      "GatilhoBase",
+      "Imagem",
+      "Moeda",
+      "Pessoa",
+      "ProcessoFatura",
+      "Template",
+    ],
+  );
   for (const entry of entries) {
     assert.equal(entry.definition.scope, "tenant", entry.name);
     assert.deepEqual(entry.definition.tenancy, { scope: "tenant", tenantField: "tenantId" }, entry.name);
