@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { ptaxDate, resolveRate } = require("../src/services/currencies");
+const { ptaxDate, resolveRate, templateCurrency } = require("../src/services/currencies");
 
 test("moeda fixa exige e retorna valor positivo", async () => {
   const rate = await resolveRate({ codigo: "BRL", fonte: "fixa", valorFixo: 1.25 }, { now: "2026-08-14T12:00:00Z" });
@@ -48,4 +48,19 @@ test("sem histórico usa contingência e nunca aceita zero implícito", async ()
 
 test("formata a data PTAX no contrato mm-dd-aaaa", () => {
   assert.equal(ptaxDate(new Date("2026-08-04T12:00:00Z")), "08-04-2026");
+});
+
+test("expoe moedas no mesmo formato consumido pelos templates legados", () => {
+  const currency = templateCurrency(
+    { codigo: "USD", simbolo: "$", fonte: "bacen", valorFixo: null, status: "ativo" },
+    {
+      value: 5.2, source: "bacen", referenceDate: new Date("2026-08-13T00:00:00Z"),
+      queriedAt: new Date("2026-08-14T00:00:00Z"), warning: "",
+    },
+  );
+  assert.equal(currency.simbolo, "USD");
+  assert.equal(currency.simboloMonetario, "$");
+  assert.equal(currency.tipoCotacao, "cotacao");
+  assert.equal(currency.valorFinal, "5.2000");
+  assert.equal(currency.status, "ativo");
 });
