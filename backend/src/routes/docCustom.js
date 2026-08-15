@@ -67,11 +67,26 @@ async function handleOmieWebhook(req, res) {
   res.status(200).json(result);
 }
 
+async function handleProcessPdf(req, res) {
+  const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
+  const artifact = await Model("ArtefatoPdf").findOne({
+    _id: invoiceProcess.artefatoPdfId,
+    tenantId: req.accessContext.tenantId,
+  }).select("+conteudoBase64");
+  if (!artifact) throw new GenericError("PDF nao encontrado.", { statusCode: 404 });
+  res.setHeader("content-type", "application/pdf");
+  res.setHeader("content-disposition", `inline; filename="${String(artifact.nomeArquivo || "fatura.pdf").replace(/[\"\r\n]/g, "-")}"`);
+  res.setHeader("cache-control", "private, no-store");
+  res.setHeader("etag", `"${artifact.hash}"`);
+  res.send(Buffer.from(artifact.conteudoBase64, "base64"));
+}
+
 // O ingress público remove o primeiro segmento /api antes de encaminhar ao backend.
 // Este alias mantém a URL pública /api/doc-custom/... funcional sem remover a rota
 // canônica, usada no desenvolvimento local e em integrações internas.
 defineRoutes("/doc-custom", (router) => {
   router.public.post("/webhooks/omie/:token", handleOmieWebhook);
+  router.private.get("/processos/:id/pdf", { permission: "process.read" }, handleProcessPdf);
 });
 
 defineRoutes("/api/doc-custom", (router) => {
@@ -289,16 +304,7 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.post("/processos/:id/reprocessar", { permission: "process.reprocess", audit: processAudit("reprocessado") }, async (req, res) => {
     res.status(201).json({ processo: await workflow.reprocess(req.params.id, req.accessContext, actor(req)) });
   });
-  router.private.get("/processos/:id/pdf", { permission: "process.read" }, async (req, res) => {
-    const process = await workflow.loadProcess(req.params.id, req.accessContext);
-    const artifact = await Model("ArtefatoPdf").findOne({ _id: process.artefatoPdfId, tenantId: req.accessContext.tenantId })
-      .select("+conteudoBase64");
-    if (!artifact) throw new GenericError("PDF nao encontrado.", { statusCode: 404 });
-    res.setHeader("content-type", "application/pdf");
-    res.setHeader("content-disposition", `inline; filename="${artifact.nomeArquivo.replace(/[\"\r\n]/g, "-")}"`);
-    res.setHeader("etag", `"${artifact.hash}"`);
-    res.send(Buffer.from(artifact.conteudoBase64, "base64"));
-  });
+  router.private.get("/processos/:id/pdf", { permission: "process.read" }, handleProcessPdf);
   router.private.get("/processos/:id/envio", { permission: "process.read" }, async (req, res) => {
     const process = await workflow.loadProcess(req.params.id, req.accessContext);
     const variables = process.variaveisSnapshot || {};
