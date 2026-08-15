@@ -65,3 +65,22 @@ test("template obrigatório da issue renderiza com o contrato completo", () => {
   assert.match(html, /Banco Exemplo/);
   assert.match(html, /data:image\/gif;base64,R0lGOD/);
 });
+
+test("template obrigatório renderiza sem logo e respeita o MIME do arquivo", () => {
+  const variables = {
+    os: {
+      Cabecalho: { nCodOS: 10, cNumOS: "OS-SEM-LOGO", nCodCli: 20, nValorTotal: 100, dDtPrevisao: "30/08/2026" },
+      InfoCadastro: { dDtInc: "14/08/2026" }, InformacoesAdicionais: {},
+      ServicosPrestados: [], despesasReembolsaveis: { despesaReembolsavel: [] },
+      Observacoes: { cObsOS: "" }, Email: { cEnviarPara: "" },
+    },
+    cliente: { nome_fantasia: "Cliente", pais: "Brasil" }, baseOmie: { cnpj: "", nome: "Base" },
+    moedas: [], configuracoes: [], includes: [],
+  };
+  const withoutLogo = renderTemplate(content(), variables);
+  assert.match(withoutLogo, /FATURA \| INVOICE #OS-SEM-LOGO/);
+  assert.doesNotMatch(withoutLogo, /<img src="data:/);
+
+  const withPng = renderTemplate(content(), { ...variables, includes: [{ codigo: "logo", conteudo: "iVBORw0KGgo=", contentType: "image/png" }] });
+  assert.match(withPng, /data:image\/png;base64,iVBORw0KGgo=/);
+});
