@@ -57,8 +57,7 @@ function isOsStageEvent(topic) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/gi, "")
     .toLowerCase();
-  return (normalized.includes("ordemservico") || normalized.includes("ordemdeservico") || normalized.startsWith("os"))
-    && (normalized.includes("alterad") || normalized.includes("etapa"));
+  return normalized === "ordemservicoetapaalterada";
 }
 
 function matchesAppKeyMask(appKey, masked) {
