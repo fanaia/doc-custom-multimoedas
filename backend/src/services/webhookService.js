@@ -147,9 +147,11 @@ async function receiveWebhook(token, payload) {
   try {
     let response;
     if (normalized.ping) {
-      response = { ping: true, accepted: true, processes: [] };
+      response = { ping: true, accepted: true, ignored: true, message: "pong", processes: [] };
     } else if (!isOsStageEvent(normalized.topic)) {
-      response = { accepted: true, ignored: true, reason: "evento-nao-e-alteracao-etapa-os", processes: [] };
+      // Mesmo contrato do backend legado: token válido e tópico não suportado
+      // são uma entrega válida, mas sem efeito operacional.
+      response = { accepted: true, ignored: true, reason: "topico-ignorado", message: "Tópico ignorado.", processes: [] };
     } else {
       if (!normalized.appKey || !await verifyWebhookAppKey(base, normalized.appKey)) {
         throw new GenericError("App Key do webhook nao corresponde a base configurada.", {
@@ -183,10 +185,11 @@ async function receiveWebhook(token, payload) {
         accepted: true,
         ignored: results.length === 0,
         reason: results.length ? undefined : "etapa-sem-gatilho",
+        message: results.length ? "Webhook recebido. Processo registrado." : "Etapa ignorada.",
         processes: results,
       };
     }
-    await integrationTickets.success(ticket, { resposta: response, codigoExterno: normalized.eventId });
+    await integrationTickets.success(ticket, { resposta: response, codigoExterno: normalized.eventId, mensagem: response.message });
     return response;
   } catch (error) {
     await integrationTickets.failure(ticket, error);
