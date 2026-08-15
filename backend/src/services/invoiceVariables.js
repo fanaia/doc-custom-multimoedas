@@ -60,7 +60,7 @@ async function buildVariables({ tenantId, base, codigoOs, numeroOs, processoId, 
   const [moedas, configuracoes, imagens] = await Promise.all([
     (adapters.resolveCurrencies || resolveTenantCurrencies)(tenantId, processoId, adapters),
     resolvedConfigurations(tenantId, base._id),
-    registry.getModel("Imagem").mongooseModel.find({ tenantId, status: "ativo" }).lean(),
+    registry.getModel("Imagem").mongooseModel.find({ tenantId, status: "ativo" }).select("+conteudo").lean(),
   ]);
   const includes = imagens.map((item) => ({
     codigo: item.codigo,
