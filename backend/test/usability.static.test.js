@@ -11,12 +11,15 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 test("upload de imagem deriva MIME e tamanho no servidor e oferece visualizacao", () => {
   const routes = read("src/routes/docCustom.js");
   const variables = read("src/services/invoiceVariables.js");
+  const contracts = read("src/services/templateContracts.js");
   assert.match(routes, /imagens\/upload/);
   assert.match(routes, /Buffer\.byteLength\(conteudo, "base64"\)/);
   assert.match(routes, /imagens\/:id\/conteudo/);
   assert.match(variables, /find\(\{ tenantId, status: "ativo" \}\)\.select\("\+conteudo"\)\.lean\(\)/);
-  assert.match(variables, /contenType: item\.contentType/);
-  assert.match(variables, /caracteristicas: configuracoes/);
+  assert.doesNotMatch(variables, /contenType: item\.contentType/);
+  assert.doesNotMatch(variables, /caracteristicas: configuracoes/);
+  assert.match(contracts, /contenType: item\.contenType \|\| item\.contentType/);
+  assert.match(contracts, /caracteristicas: configuracoes/);
 });
 
 test("preview de template exige dados Omie do tenant", () => {
