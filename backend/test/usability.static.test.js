@@ -15,6 +15,8 @@ test("upload de imagem deriva MIME e tamanho no servidor e oferece visualizacao"
   assert.match(routes, /Buffer\.byteLength\(conteudo, "base64"\)/);
   assert.match(routes, /imagens\/:id\/conteudo/);
   assert.match(variables, /find\(\{ tenantId, status: "ativo" \}\)\.select\("\+conteudo"\)\.lean\(\)/);
+  assert.match(variables, /contenType: item\.contentType/);
+  assert.match(variables, /caracteristicas: configuracoes/);
 });
 
 test("preview de template exige dados Omie do tenant", () => {
