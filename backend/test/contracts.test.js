@@ -57,6 +57,9 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
     assert.equal(Base.mongooseModel.schema.path(secret).options.select, false);
   }
   assert.equal(registry.getModel("SendGridConfig").mongooseModel.schema.path("apiKeyEncrypted").options.select, false);
+  const processIndexes = registry.getModel("ProcessoFatura").mongooseModel.schema.indexes();
+  assert.equal(processIndexes.some(([keys, options]) => keys.processoAnteriorId === 1 && options.unique), false);
+  assert.equal(processIndexes.some(([keys, options]) => keys.idempotencyKey === 1 && options.unique), true);
 });
 
 test("normalização de webhook é canônica e preserva id do evento", () => {
