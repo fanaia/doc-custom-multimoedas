@@ -115,6 +115,16 @@ function templateSnapshot(templates) {
   }]));
 }
 
+function variablesSnapshot(variables) {
+  return {
+    ...variables,
+    includes: (variables.includes || []).map(({ conteudo, ...include }) => ({
+      ...include,
+      conteudoOmitido: Boolean(conteudo),
+    })),
+  };
+}
+
 function renderConfiguredTemplate(template, variables, options) {
   if (!template?.conteudo) {
     throw new GenericError(`Template ${template?.tipo || "desconhecido"} sem conteúdo.`, {
@@ -194,7 +204,7 @@ async function generateInvoice(process, actor, adapters = {}) {
       pdfHash: artifact.hash,
       cotacoesUsadas: variables.moedas,
       templateSnapshot: templateSnapshot(templates),
-      variaveisSnapshot: variables,
+      variaveisSnapshot: variablesSnapshot(variables),
       emailSnapshot: { subject, body },
       alerta: warnings.join(" "),
     },
@@ -512,6 +522,7 @@ module.exports = {
   previewTemplate,
   renderConfiguredTemplate,
   renderConfiguredTemplates,
+  variablesSnapshot,
   reject,
   reprocess,
   retry,
