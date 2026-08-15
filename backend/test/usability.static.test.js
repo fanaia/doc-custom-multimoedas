@@ -118,3 +118,18 @@ test("listas Omie ficam fora do menu e moedas padrao sao criadas por tenant", ()
   assert.match(ui, /"model": "CategoriaOmie"[^\n]+"hidden": true/);
   assert.match(ui, /"model": "ContaCorrenteOmie"[^\n]+"hidden": true/);
 });
+
+test("PDF da fatura usa rota compatível com ingress e visualizador autenticado na aba", () => {
+  const routes = read("src/routes/docCustom.js");
+  const ui = read("../frontend/central.ui.json");
+  const frontend = read("../frontend/src/main.tsx");
+  assert.match(routes, /async function handleProcessPdf/);
+  assert.equal((routes.match(/private\.get\("\/processos\/:id\/pdf"/g) || []).length, 2);
+  assert.match(routes, /cache-control", "private, no-store/);
+  assert.match(ui, /"type": "customComponent", "component": "ProcessPdfViewer"/);
+  assert.doesNotMatch(ui, /"id": "abrir-pdf"/);
+  assert.match(frontend, /responseType: "blob"/);
+  assert.match(frontend, /ProcessPdfViewer/);
+  assert.match(frontend, /Reduzir zoom/);
+  assert.match(frontend, /Aumentar zoom/);
+});

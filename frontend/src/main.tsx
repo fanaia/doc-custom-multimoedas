@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { startCentralFromManifest, useOonApi } from "@oondemand/oon-core-front";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -172,6 +172,53 @@ function TicketsIntegracaoPage(){
 
 function DocumentosPage() { const query=useCatalogs(); return <div><Header title="Documentos gerados" description="Documentos criados automaticamente pelos templates e pela esteira de processamento."/><div style={card}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th align="left">Arquivo</th><th align="left">Template</th><th align="left">Tamanho</th><th align="left">Gerado em</th></tr></thead><tbody>{query.data?.documentos.map(d=><tr key={d._id}><td>{d.nomeArquivo}</td><td>{d.templateCodigo} v{d.templateVersao}</td><td>{(Number(d.tamanho)/1024).toFixed(1)} KB</td><td>{new Date(d.geradoEm).toLocaleString("pt-BR")}</td></tr>)}</tbody></table></div></div> }
 
+function ProcessPdfViewer({ parent, record }: { parent?: Item; record?: Item }) {
+  const { http } = useOonApi();
+  const invoiceProcess = parent || record;
+  const processId = String(invoiceProcess?._id || "");
+  const artifactId = String(invoiceProcess?.artefatoPdfId?._id || invoiceProcess?.artefatoPdfId || "");
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(100);
+
+  useEffect(() => {
+    if (!processId || !artifactId) { setPdfUrl(""); setError(""); return; }
+    const controller = new AbortController();
+    let objectUrl = "";
+    setLoading(true); setError("");
+    http.get(`/api/doc-custom/processos/${encodeURIComponent(processId)}/pdf`, { responseType: "blob", signal: controller.signal })
+      .then((response) => {
+        const file = response.data instanceof Blob ? response.data : new Blob([response.data], { type: "application/pdf" });
+        objectUrl = URL.createObjectURL(file);
+        setPdfUrl(objectUrl);
+      })
+      .catch((requestError) => { if (!controller.signal.aborted) setError(errorText(requestError)); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [artifactId, http, processId]);
+
+  if (!artifactId) return <div style={{ ...card, color: "#64748b" }}>A fatura ainda não foi gerada para este processo.</div>;
+  if (loading) return <div style={{ ...card, color: "#64748b" }}>Carregando PDF...</div>;
+  if (error) return <Notice error={error}/>;
+  if (!pdfUrl) return null;
+  const pdfSource = `${pdfUrl}#zoom=${zoom}&toolbar=1&navpanes=0`;
+  return <div style={{display:"grid",gap:10}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <button type="button" aria-label="Reduzir zoom" style={secondary} onClick={()=>setZoom(value=>Math.max(50,value-25))}>−</button>
+        <output aria-label="Zoom atual" style={{minWidth:58,textAlign:"center",fontWeight:600}}>{zoom}%</output>
+        <button type="button" aria-label="Aumentar zoom" style={secondary} onClick={()=>setZoom(value=>Math.min(200,value+25))}>+</button>
+        <button type="button" style={secondary} onClick={()=>setZoom(100)}>Restaurar</button>
+      </div>
+      <a href={pdfUrl} download={`fatura-${invoiceProcess?.numeroOs || processId}.pdf`} style={{...secondary,textDecoration:"none"}}>Baixar PDF</a>
+    </div>
+    <div style={{height:"68vh",minHeight:480,border:"1px solid #dce3ea",borderRadius:10,overflow:"hidden",background:"#eef2f6"}}>
+      <iframe key={pdfSource} title={`Fatura ${invoiceProcess?.numeroOs || ""}`} src={pdfSource} style={{width:"100%",height:"100%",border:0}}/>
+    </div>
+  </div>;
+}
+
 const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "EtapaOmie", "CategoriaOmie", "ContaCorrenteOmie", "Gatilho"]);
 const uiManifest = {
   ...ui,
@@ -197,5 +244,5 @@ startCentralFromManifest({ app, ui: uiManifest as Parameters<typeof startCentral
   apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
   meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
-  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage },
+  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, ProcessPdfViewer },
 });
