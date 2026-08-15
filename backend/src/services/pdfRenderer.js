@@ -92,8 +92,16 @@ async function remotePdf(html, fetchImpl = globalThis.fetch) {
   return Buffer.from(result.pdfBase64, "base64");
 }
 
+function remoteRendererConfigured() {
+  return Boolean(process.env.PDF_RENDERER_URL);
+}
+
+function usesFallbackPdf(options = {}) {
+  return !options.renderPdf && !remoteRendererConfigured();
+}
+
 async function renderPdf(html, options = {}) {
-  if (process.env.PDF_RENDERER_URL) return assertPdf(await remotePdf(html, options.fetchImpl));
+  if (remoteRendererConfigured()) return assertPdf(await remotePdf(html, options.fetchImpl));
   if (String(process.env.PDF_REQUIRE_RENDERER || "false").toLowerCase() === "true") {
     throw new GenericError("Configure PDF_RENDERER_URL para gerar o documento.", {
       statusCode: 503,
@@ -103,4 +111,4 @@ async function renderPdf(html, options = {}) {
   return assertPdf(fallbackPdf(html));
 }
 
-module.exports = { assertPdf, fallbackPdf, renderPdf, stripHtml };
+module.exports = { assertPdf, fallbackPdf, remoteRendererConfigured, renderPdf, stripHtml, usesFallbackPdf };
