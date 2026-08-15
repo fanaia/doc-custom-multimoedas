@@ -163,21 +163,26 @@ async function downloadAttachment(url, options = {}) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-async function atualizarEtapa(base, accessContext, os, etapa, observacao, options) {
-  const current = os?.Cabecalho ? os : await consultarOs(base, accessContext, os, options);
+function buildStageUpdate(current, etapa, observacao) {
   const existing = String(current?.Observacoes?.cObsOS || "");
   const appended = existing.includes(observacao) ? existing : [existing, observacao].filter(Boolean).join("\n");
-  const header = { nCodOS: Number(current.Cabecalho.nCodOS), cEtapa: etapa };
-  if (current.Cabecalho.dDtPrevisao) header.dDtPrevisao = current.Cabecalho.dDtPrevisao;
-  if (current.Cabecalho.cCodParc) header.cCodParc = current.Cabecalho.cCodParc;
-  return call(base, accessContext, "servicos/os/", "AlterarOS", {
-    Cabecalho: header,
+  return {
+    Cabecalho: {
+      nCodOS: Number(current.Cabecalho.nCodOS),
+      cEtapa: etapa,
+    },
     Observacoes: { cObsOS: appended },
-  }, options);
+  };
+}
+
+async function atualizarEtapa(base, accessContext, os, etapa, observacao, options) {
+  const current = os?.Cabecalho ? os : await consultarOs(base, accessContext, os, options);
+  return call(base, accessContext, "servicos/os/", "AlterarOS", buildStageUpdate(current, etapa, observacao), options);
 }
 
 module.exports = {
   atualizarEtapa,
+  buildStageUpdate,
   call,
   consultarCliente,
   consultarOs,
