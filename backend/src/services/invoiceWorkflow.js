@@ -115,6 +115,41 @@ function templateSnapshot(templates) {
   }]));
 }
 
+function variablesSnapshot(variables) {
+  return {
+    ...variables,
+    includes: (variables.includes || []).map(({ conteudo, ...include }) => ({
+      ...include,
+      conteudoOmitido: Boolean(conteudo),
+    })),
+  };
+}
+
+function renderConfiguredTemplate(template, variables, options) {
+  if (!template?.conteudo) {
+    throw new GenericError(`Template ${template?.tipo || "desconhecido"} sem conteúdo.`, {
+      statusCode: 422,
+      code: "TRIGGER_TEMPLATE_CONTENT_MISSING",
+    });
+  }
+  try {
+    return renderTemplate(template.conteudo, variables, options);
+  } catch (error) {
+    throw new GenericError(`Falha no template ${template.tipo} "${template.codigo}" v${template.versao}: ${error.message}`, {
+      statusCode: error.statusCode || 422,
+      code: error.code || "TRIGGER_TEMPLATE_RENDER_ERROR",
+    });
+  }
+}
+
+function renderConfiguredTemplates(templates, variables, options) {
+  return {
+    html: renderConfiguredTemplate(templates.document, variables, options),
+    subject: renderConfiguredTemplate(templates.subject, variables, options),
+    body: renderConfiguredTemplate(templates.body, variables, options),
+  };
+}
+
 function invoiceFilename(number) {
   return `invoice-${String(number).replace(/[^a-z0-9._-]/gi, "-")}-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
 }
@@ -136,9 +171,7 @@ async function generateInvoice(process, actor, adapters = {}) {
     adapters,
   });
   const templates = await loadTemplates(trigger, process.tenantId);
-  const html = renderTemplate(templates.document.conteudo, variables, adapters.templateOptions);
-  const subject = renderTemplate(templates.subject.conteudo, variables, adapters.templateOptions);
-  const body = renderTemplate(templates.body.conteudo, variables, adapters.templateOptions);
+  const { html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions);
   const pdf = await (adapters.renderPdf || renderPdf)(html, adapters);
   const hash = sha256Buffer(pdf);
   const filename = invoiceFilename(variables.os.Cabecalho.cNumOS);
@@ -171,7 +204,7 @@ async function generateInvoice(process, actor, adapters = {}) {
       pdfHash: artifact.hash,
       cotacoesUsadas: variables.moedas,
       templateSnapshot: templateSnapshot(templates),
-      variaveisSnapshot: variables,
+      variaveisSnapshot: variablesSnapshot(variables),
       emailSnapshot: { subject, body },
       alerta: warnings.join(" "),
     },
@@ -323,9 +356,10 @@ async function failProcess(process, stage, error, actor, adapters = {}) {
       `Falha na geracao/envio da invoice: ${summary.message}`, adapters,
     );
   } catch (stageError) {
+    const stageSummary = errorSummary(stageError);
     await recordEvent(process, {
-      stage: "Atualizar status Omie", result: "falha", error: errorSummary(stageError),
-      userId: actor.userId, message: "Nao foi possivel mover a OS para a etapa de erro.",
+      stage: "Atualizar status Omie", result: "falha", error: stageSummary,
+      userId: actor.userId, message: `Nao foi possivel mover a OS para a etapa de erro: ${stageSummary.message}`,
     });
   }
 }
@@ -446,9 +480,7 @@ async function previewTrigger(triggerId, accessContext, input, adapters = {}) {
     accessContext,
     adapters,
   });
-  const html = renderTemplate(templates.document.conteudo, variables, adapters.templateOptions);
-  const subject = renderTemplate(templates.subject.conteudo, variables, adapters.templateOptions);
-  const body = renderTemplate(templates.body.conteudo, variables, adapters.templateOptions);
+  const { html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions);
   const pdf = await (adapters.renderPdf || renderPdf)(html, adapters);
   return { html, subject, body, pdfBase64: pdf.toString("base64"), variables: sanitize(variables) };
 }
@@ -488,6 +520,9 @@ module.exports = {
   loadProcess,
   previewTrigger,
   previewTemplate,
+  renderConfiguredTemplate,
+  renderConfiguredTemplates,
+  variablesSnapshot,
   reject,
   reprocess,
   retry,

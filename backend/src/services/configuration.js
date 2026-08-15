@@ -24,14 +24,19 @@ async function resolvedConfigurations(tenantId, baseOmieId) {
     codigo: item.codigo,
     descricao: item.descricao,
     tipo: item.tipo,
-    valor: parseValue(item),
+    // O EJS legado recebe o valor persistido, normalmente uma string.
+    valor: item.valor,
+    valorTipado: parseValue(item),
+    baseOmie: item.baseOmieId || null,
+    baseOmieId: item.baseOmieId || null,
+    status: item.status,
     origem: item.baseOmieId ? "base" : "global",
   }));
 }
 
 function getConfiguration(configurations, code, fallback = undefined) {
   const item = configurations.find((candidate) => candidate.codigo === code);
-  return item ? item.valor : fallback;
+  return item ? (item.valorTipado ?? parseValue(item)) : fallback;
 }
 
 module.exports = { getConfiguration, parseValue, resolvedConfigurations };

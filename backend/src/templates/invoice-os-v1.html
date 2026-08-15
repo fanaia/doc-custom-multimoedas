@@ -1,7 +1,9 @@
 <%
 let idiomaFormatado = 'pt-BR';
 
-let logo = includes.find(item => item.codigo === 'logo').conteudo;
+const logoInclude = includes.find(item => item.codigo === 'logo');
+let logo = logoInclude?.conteudo || '';
+let logoContentType = logoInclude?.contentType || 'image/gif';
 
 var cotacaoUSD = moedas.find(moeda => moeda.simbolo === 'USD')?.valorFinal;
 var cotacaoEUR = moedas.find(moeda => moeda.simbolo === 'EUR')?.valorFinal;
@@ -258,7 +260,7 @@ const iban = configuracoes.find(c => c.codigo === "pagamento-iban")?.valor;
       <!-- Header -->
       <table>
         <tr>
-          <td class="header-logo"><img src="data:image/gif;base64,<%= logo %>" /></td>
+          <td class="header-logo"><% if (logo) { %><img src="data:<%= logoContentType %>;base64,<%= logo %>" /><% } %></td>
           <td>
             <div class="titulo" style="justify-content: center; align-items: center; margin-top: 20px;">
               FATURA | INVOICE #<%= os.Cabecalho.cNumOS %>

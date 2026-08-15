@@ -85,6 +85,26 @@ async function resolveRate(currency, adapters = {}) {
   }
 }
 
+function templateCurrency(currency, rate) {
+  return {
+    // Contrato historico dos templates: "simbolo" contem o codigo ISO.
+    simbolo: currency.codigo,
+    tipoCotacao: currency.fonte === "fixa" ? "valorFixo" : "cotacao",
+    valor: currency.valorFixo,
+    status: currency.status,
+    cotacao: rate.value,
+    valorFinal: Number(rate.value).toFixed(4),
+
+    // Campos adicionais da implementacao atual, mantidos sem alterar o legado.
+    codigo: currency.codigo,
+    simboloMonetario: currency.simbolo || currency.codigo,
+    fonte: rate.source,
+    dataReferencia: rate.referenceDate,
+    consultadaEm: rate.queriedAt,
+    alerta: rate.warning,
+  };
+}
+
 async function resolveTenantCurrencies(tenantId, processoId, adapters = {}) {
   const Currency = registry.getModel("Moeda").mongooseModel;
   const History = registry.getModel("CotacaoMoeda").mongooseModel;
@@ -115,20 +135,9 @@ async function resolveTenantCurrencies(tenantId, processoId, adapters = {}) {
         ultimaOrigem: rate.source,
       },
     });
-    output.push({
-      codigo: currency.codigo,
-      simbolo: currency.simbolo || currency.codigo,
-      tipoCotacao: currency.fonte,
-      valor: currency.valorFixo,
-      cotacao: rate.value,
-      valorFinal: rate.value,
-      fonte: rate.source,
-      dataReferencia: rate.referenceDate,
-      consultadaEm: rate.queriedAt,
-      alerta: rate.warning,
-    });
+    output.push(templateCurrency(currency, rate));
   }
   return output;
 }
 
-module.exports = { fetchPtax, positive, ptaxDate, resolveRate, resolveTenantCurrencies };
+module.exports = { fetchPtax, positive, ptaxDate, resolveRate, resolveTenantCurrencies, templateCurrency };

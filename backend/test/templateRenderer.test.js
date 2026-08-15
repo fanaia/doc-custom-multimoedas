@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { content } = require("../src/services/mandatoryTemplate");
 const { renderTemplate } = require("../src/services/templateRenderer");
+const { variablesSnapshot } = require("../src/services/invoiceWorkflow");
 
 test("renderiza EJS com escape, saída crua e iteração", () => {
   const rendered = renderTemplate(
@@ -64,4 +65,51 @@ test("template obrigatório da issue renderiza com o contrato completo", () => {
   assert.match(html, /Observação autorizada/);
   assert.match(html, /Banco Exemplo/);
   assert.match(html, /data:image\/gif;base64,R0lGOD/);
+});
+
+test("template obrigatório renderiza sem logo e respeita o MIME do arquivo", () => {
+  const variables = {
+    os: {
+      Cabecalho: { nCodOS: 10, cNumOS: "OS-SEM-LOGO", nCodCli: 20, nValorTotal: 100, dDtPrevisao: "30/08/2026" },
+      InfoCadastro: { dDtInc: "14/08/2026" }, InformacoesAdicionais: {},
+      ServicosPrestados: [], despesasReembolsaveis: { despesaReembolsavel: [] },
+      Observacoes: { cObsOS: "" }, Email: { cEnviarPara: "" },
+    },
+    cliente: { nome_fantasia: "Cliente", pais: "Brasil" }, baseOmie: { cnpj: "", nome: "Base" },
+    moedas: [], configuracoes: [], includes: [],
+  };
+  const withoutLogo = renderTemplate(content(), variables);
+  assert.match(withoutLogo, /FATURA \| INVOICE #OS-SEM-LOGO/);
+  assert.doesNotMatch(withoutLogo, /<img src="data:/);
+
+  const withPng = renderTemplate(content(), { ...variables, includes: [{ codigo: "logo", conteudo: "iVBORw0KGgo=", contentType: "image/png" }] });
+  assert.match(withPng, /data:image\/png;base64,iVBORw0KGgo=/);
+});
+
+test("assunto e corpo de email legados acessam os dados Omie sem adaptacao", () => {
+  const emailTemplate = `<%
+let dataRps = os.InformacoesAdicionais.dDataRps ? os.InformacoesAdicionais.dDataRps.split("/") : [];
+let competencia = "";
+if(dataRps.length > 2) { competencia = \`\${dataRps[1]}/\${dataRps[2]}\`; }
+%><%= cliente.razao_social %> - FATURAMENTO/ INVOICING EUROPARTNER <%= competencia %>`;
+  const variables = {
+    os: { InformacoesAdicionais: { dDataRps: "14/08/2026" } },
+    cliente: { razao_social: "Cliente Legado Ltda." },
+  };
+  const rendered = renderTemplate(emailTemplate, variables);
+  assert.equal(rendered, "Cliente Legado Ltda. - FATURAMENTO/ INVOICING EUROPARTNER 08/2026");
+});
+
+test("snapshot do processo nao persiste o Base64 das imagens", () => {
+  const variables = {
+    os: { Cabecalho: { cNumOS: "144" } },
+    includes: [{ codigo: "logo", conteudo: "A".repeat(2 * 1024 * 1024), contentType: "image/png" }],
+  };
+  const snapshot = variablesSnapshot(variables);
+  assert.equal(snapshot.os.Cabecalho.cNumOS, "144");
+  assert.equal(snapshot.includes[0].codigo, "logo");
+  assert.equal(snapshot.includes[0].contentType, "image/png");
+  assert.equal(snapshot.includes[0].conteudoOmitido, true);
+  assert.equal("conteudo" in snapshot.includes[0], false);
+  assert.equal(variables.includes[0].conteudo.length, 2 * 1024 * 1024);
 });

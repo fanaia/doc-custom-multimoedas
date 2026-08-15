@@ -60,19 +60,29 @@ async function buildVariables({ tenantId, base, codigoOs, numeroOs, processoId, 
   const [moedas, configuracoes, imagens] = await Promise.all([
     (adapters.resolveCurrencies || resolveTenantCurrencies)(tenantId, processoId, adapters),
     resolvedConfigurations(tenantId, base._id),
-    registry.getModel("Imagem").mongooseModel.find({ tenantId, status: "ativo" }).lean(),
+    registry.getModel("Imagem").mongooseModel.find({ tenantId, status: "ativo" }).select("+conteudo").lean(),
   ]);
   const includes = imagens.map((item) => ({
     codigo: item.codigo,
+    descricao: item.descricao || "",
     conteudo: item.conteudo,
+    // O model legado possui este nome com a grafia "contenType".
+    contenType: item.contentType,
     contentType: item.contentType,
+    nomeArquivo: item.nomeArquivo,
+    tamanho: item.tamanho,
+    status: item.status,
   }));
   return {
     os,
     cliente,
-    baseOmie: { _id: String(base._id), codigo: base.codigo, nome: base.nome, cnpj: base.cnpj, ambiente: base.ambiente },
+    baseOmie: {
+      _id: String(base._id), codigo: base.codigo, nome: base.nome, cnpj: base.cnpj,
+      ambiente: base.ambiente, status: base.status,
+    },
     moedas,
     configuracoes,
+    caracteristicas: configuracoes,
     includes,
   };
 }
