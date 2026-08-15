@@ -12,6 +12,7 @@ const ETAPAS = [
   "Concluido",
   "Falha",
   "Rejeitado",
+  "Arquivado",
 ];
 
 defineTenantModel({
@@ -29,7 +30,7 @@ defineTenantModel({
     numeroOs: fields.string({ label: "Numero OS", searchable: true }),
     clienteNome: fields.string({ label: "Cliente", searchable: true }),
     etapa: fields.enum(ETAPAS, { required: true, label: "Etapa", default: "Aprovar processamento" }),
-    status: fields.enum(["ativo", "concluido", "falha", "rejeitado"], {
+    status: fields.enum(["ativo", "concluido", "falha", "rejeitado", "arquivado"], {
       required: true,
       label: "Status",
       default: "ativo",
@@ -69,7 +70,6 @@ defineTenantModel({
   },
 }, [
   [{ idempotencyKey: 1 }, { unique: true }],
-  [{ tenantId: 1, processoAnteriorId: 1 }, { unique: true, sparse: true }],
   [{ tenantId: 1, baseOmieId: 1, codigoOs: 1, createdAt: -1 }, {}],
   [{ tenantId: 1, etapa: 1, status: 1 }, {}],
 ]);

@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { registry, scopedIdFilter } = require("@oondemand/oon-core-back");
-const { canonical, createProcess, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
+const { archivePreviousUnsentProcesses, canonical, createProcess, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
 const { assertOsContract, normalizeOs } = require("../src/services/invoiceVariables");
 const { sanitize } = require("../src/services/sanitization");
 
@@ -57,6 +57,9 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
     assert.equal(Base.mongooseModel.schema.path(secret).options.select, false);
   }
   assert.equal(registry.getModel("SendGridConfig").mongooseModel.schema.path("apiKeyEncrypted").options.select, false);
+  const processIndexes = registry.getModel("ProcessoFatura").mongooseModel.schema.indexes();
+  assert.equal(processIndexes.some(([keys, options]) => keys.processoAnteriorId === 1 && options.unique), false);
+  assert.equal(processIndexes.some(([keys, options]) => keys.idempotencyKey === 1 && options.unique), true);
 });
 
 test("normalização de webhook é canônica e preserva id do evento", () => {
@@ -88,11 +91,16 @@ test("normalização de webhook é canônica e preserva id do evento", () => {
 
 test("reentrega do webhook recupera processo idempotente e nunca acessa resultado nulo", async () => {
   const Process = registry.getModel("ProcessoFatura").mongooseModel;
+  const Event = registry.getModel("EventoProcesso").mongooseModel;
   const originalFindOne = Process.findOne;
   const originalCreate = Process.create;
+  const originalFind = Process.find;
+  const originalUpdateMany = Process.updateMany;
+  const originalInsertMany = Event.insertMany;
   const existing = { _id: "507f1f77bcf86cd799439021", tenantId: "tenant-a" };
   try {
     Process.findOne = () => ({ select: async () => existing });
+    Process.find = () => ({ select: async () => [] });
     Process.create = async () => { throw new Error("nao deveria criar novamente"); };
     const duplicate = await createProcess({
       base: { _id: "507f1f77bcf86cd799439011", tenantId: "tenant-a" },
@@ -117,6 +125,45 @@ test("reentrega do webhook recupera processo idempotente e nunca acessa resultad
   } finally {
     Process.findOne = originalFindOne;
     Process.create = originalCreate;
+    Process.find = originalFind;
+    Process.updateMany = originalUpdateMany;
+    Event.insertMany = originalInsertMany;
+  }
+});
+
+test("nova entrada da OS arquiva somente processos anteriores ainda não enviados", async () => {
+  const Process = registry.getModel("ProcessoFatura").mongooseModel;
+  const Event = registry.getModel("EventoProcesso").mongooseModel;
+  const originalFind = Process.find;
+  const originalUpdateMany = Process.updateMany;
+  const originalInsertMany = Event.insertMany;
+  const previous = [{ _id: "507f1f77bcf86cd799439031", tentativas: 2 }];
+  let update;
+  let events;
+  try {
+    Process.find = (filter) => {
+      assert.equal(filter.codigoOs, "4951204645");
+      assert.deepEqual(filter.status.$in, ["ativo", "falha", "rejeitado"]);
+      assert.ok(filter.$or.some((condition) => condition.emailEnviadoEm === null));
+      return { select: async () => previous };
+    };
+    Process.updateMany = async (filter, operation) => { update = { filter, operation }; };
+    Event.insertMany = async (items) => { events = items; };
+    const archived = await archivePreviousUnsentProcesses({
+      base: { _id: "507f1f77bcf86cd799439011", tenantId: "tenant-a" },
+      trigger: { _id: "507f1f77bcf86cd799439013" },
+      normalized: { codigoOs: "4951204645", eventId: "new-entry-65" },
+      currentProcessId: "507f1f77bcf86cd799439099",
+    });
+    assert.equal(archived, 1);
+    assert.equal(update.operation.$set.status, "arquivado");
+    assert.equal(update.operation.$set.etapa, "Arquivado");
+    assert.equal(events[0].processoId, previous[0]._id);
+    assert.equal(events[0].detalhes.substituidoPor, "507f1f77bcf86cd799439099");
+  } finally {
+    Process.find = originalFind;
+    Process.updateMany = originalUpdateMany;
+    Event.insertMany = originalInsertMany;
   }
 });
 
