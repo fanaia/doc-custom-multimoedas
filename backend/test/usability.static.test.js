@@ -10,9 +10,11 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("upload de imagem deriva MIME e tamanho no servidor e oferece visualizacao", () => {
   const routes = read("src/routes/docCustom.js");
+  const variables = read("src/services/invoiceVariables.js");
   assert.match(routes, /imagens\/upload/);
   assert.match(routes, /Buffer\.byteLength\(conteudo, "base64"\)/);
   assert.match(routes, /imagens\/:id\/conteudo/);
+  assert.match(variables, /find\(\{ tenantId, status: "ativo" \}\)\.select\("\+conteudo"\)\.lean\(\)/);
 });
 
 test("preview de template exige dados Omie do tenant", () => {
