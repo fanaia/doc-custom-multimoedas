@@ -39,7 +39,10 @@ test("aprovacao nao sombreia o process global e preserva os dois identificadores
   assert.match(workflow, /process\.env\.PROCESS_LOCK_MS/);
   assert.match(workflow, /const lockedProcess = await Model\("ProcessoFatura"\)/);
   assert.doesNotMatch(workflow, /const process = await Model\("ProcessoFatura"\)\.findOneAndUpdate/);
-  assert.match(workflow, /numeroOs: process\.numeroOs/);
+  assert.doesNotMatch(workflow, /process\.env\.PDF_RENDERER_URL/);
+  assert.match(workflow, /generateInvoice\(invoiceProcess, actor, adapters/);
+  assert.match(workflow, /usesFallbackPdf\(adapters\)/);
+  assert.match(workflow, /numeroOs: invoiceProcess\.numeroOs/);
   assert.match(webhook, /codigoOs: String\(codigoOs \|\| numeroOs \|\| ""\), numeroOs: String\(numeroOs \|\| ""\)/);
 });
 
