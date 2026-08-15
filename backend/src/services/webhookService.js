@@ -79,10 +79,19 @@ async function verifyWebhookAppKey(base, appKey) {
   return true;
 }
 
+async function findProcessByIdempotencyKey(key, tenantId) {
+  const process = await Model("ProcessoFatura").findOne({ idempotencyKey: key })
+    .select("+tenantId +idempotencyKey");
+  if (!process || String(process.tenantId) !== String(tenantId)) return null;
+  return process;
+}
+
 async function createProcess({ base, mapping, trigger, normalized }) {
   const key = hash([
     "invoice", base.tenantId, base._id, normalized.codigoOs, trigger._id, normalized.eventId,
   ].join(":"));
+  const existing = await findProcessByIdempotencyKey(key, base.tenantId);
+  if (existing) return { process: existing, duplicate: true };
   try {
     const process = await Model("ProcessoFatura").create({
       tenantId: String(base.tenantId),
@@ -113,10 +122,13 @@ async function createProcess({ base, mapping, trigger, normalized }) {
     return { process, duplicate: false };
   } catch (error) {
     if (error?.code !== 11000) throw error;
-    const process = await Model("ProcessoFatura").findOne({
-      tenantId: String(base.tenantId),
-      idempotencyKey: key,
-    }).select("+tenantId");
+    const process = await findProcessByIdempotencyKey(key, base.tenantId);
+    if (!process) {
+      throw new GenericError("Conflito ao registrar o processo do webhook. A entrega pode ser repetida com segurança.", {
+        statusCode: 409,
+        code: "WEBHOOK_PROCESS_CONFLICT",
+      });
+    }
     return { process, duplicate: true };
   }
 }
@@ -159,6 +171,12 @@ async function receiveWebhook(token, payload) {
         const trigger = await Model("Gatilho").findOne({ _id: mapping.gatilhoId, tenantId: base.tenantId, status: "ativo", tipoDocumento: "ordem-servico" });
         if (!trigger) continue;
         const result = await createProcess({ base, mapping, trigger, normalized });
+        if (!result.process?._id) {
+          throw new GenericError("Processo do webhook nao foi persistido.", {
+            statusCode: 503,
+            code: "WEBHOOK_PROCESS_NOT_PERSISTED",
+          });
+        }
         results.push({ id: String(result.process._id), duplicate: result.duplicate });
       }
       response = {
@@ -176,4 +194,4 @@ async function receiveWebhook(token, payload) {
   }
 }
 
-module.exports = { canonical, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
+module.exports = { canonical, createProcess, findProcessByIdempotencyKey, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
