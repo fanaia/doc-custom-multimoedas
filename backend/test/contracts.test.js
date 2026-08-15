@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { registry, scopedIdFilter } = require("@oondemand/oon-core-back");
-const { canonical, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
+const { canonical, createProcess, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
 const { assertOsContract, normalizeOs } = require("../src/services/invoiceVariables");
 const { sanitize } = require("../src/services/sanitization");
 
@@ -84,6 +84,40 @@ test("normalização de webhook é canônica e preserva id do evento", () => {
   assert.equal(isOsStageEvent("PedidoVenda.Alterado"), false);
   assert.equal(matchesAppKeyMask("3908593091403", "39••••••••03"), true);
   assert.equal(matchesAppKeyMask("9908593091403", "39••••••••03"), false);
+});
+
+test("reentrega do webhook recupera processo idempotente e nunca acessa resultado nulo", async () => {
+  const Process = registry.getModel("ProcessoFatura").mongooseModel;
+  const originalFindOne = Process.findOne;
+  const originalCreate = Process.create;
+  const existing = { _id: "507f1f77bcf86cd799439021", tenantId: "tenant-a" };
+  try {
+    Process.findOne = () => ({ select: async () => existing });
+    Process.create = async () => { throw new Error("nao deveria criar novamente"); };
+    const duplicate = await createProcess({
+      base: { _id: "507f1f77bcf86cd799439011", tenantId: "tenant-a" },
+      mapping: { _id: "507f1f77bcf86cd799439012" },
+      trigger: { _id: "507f1f77bcf86cd799439013" },
+      normalized: { codigoOs: "4951204645", numeroOs: "65", etapa: "20", eventId: "msg-65", topic: "OrdemServico.EtapaAlterada" },
+    });
+    assert.equal(duplicate.process, existing);
+    assert.equal(duplicate.duplicate, true);
+
+    Process.findOne = () => ({ select: async () => null });
+    Process.create = async () => { const error = new Error("duplicate key"); error.code = 11000; throw error; };
+    await assert.rejects(
+      () => createProcess({
+        base: { _id: "507f1f77bcf86cd799439011", tenantId: "tenant-a" },
+        mapping: { _id: "507f1f77bcf86cd799439012" },
+        trigger: { _id: "507f1f77bcf86cd799439013" },
+        normalized: { codigoOs: "4951204645", numeroOs: "65", etapa: "20", eventId: "msg-66", topic: "OrdemServico.EtapaAlterada" },
+      }),
+      (error) => error.code === "WEBHOOK_PROCESS_CONFLICT",
+    );
+  } finally {
+    Process.findOne = originalFindOne;
+    Process.create = originalCreate;
+  }
 });
 
 test("resposta parcial da Omie falha com campos compreensíveis e defaults seguros", () => {
