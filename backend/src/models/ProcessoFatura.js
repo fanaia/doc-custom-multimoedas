@@ -69,7 +69,6 @@ defineTenantModel({
   },
 }, [
   [{ idempotencyKey: 1 }, { unique: true }],
-  [{ tenantId: 1, processoAnteriorId: 1 }, { unique: true, sparse: true }],
   [{ tenantId: 1, baseOmieId: 1, codigoOs: 1, createdAt: -1 }, {}],
   [{ tenantId: 1, etapa: 1, status: 1 }, {}],
 ]);
