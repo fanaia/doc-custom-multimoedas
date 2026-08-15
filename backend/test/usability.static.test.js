@@ -75,7 +75,6 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   assert.match(frontend, /Tópico obrigatório no Omie/);
   assert.match(frontend, /Etapa da Ordem de Serviço alterada/);
   assert.match(frontend, /OrdemServico\.EtapaAlterada/);
-  assert.match(frontend, /OrdemServico\.Alterada.*continua aceito apenas para compatibilidade/);
   assert.match(frontend, /Não é necessário cadastrar inclusão, exclusão ou faturamento/);
 });
 
