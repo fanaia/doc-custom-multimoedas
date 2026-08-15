@@ -83,13 +83,13 @@ defineRoutes("/api/doc-custom", (router) => {
     const [bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos, sendgridConfig] = await Promise.all([
       Model("BaseOmie").find({ tenantId }).sort({ nome: 1 }).lean(),
       Model("Imagem").find({ tenantId }).sort({ updatedAt: -1 }).lean(),
-      Model("Template").find({ tenantId }).select("codigo descricao tipo versao status updatedAt").sort({ updatedAt: -1 }).lean(),
+      Model("Template").find({ tenantId }).select("codigo descricao tipo versao contratoVariaveis status updatedAt").sort({ updatedAt: -1 }).lean(),
       Model("ArtefatoPdf").find({ tenantId }).sort({ geradoEm: -1 }).limit(100).lean(),
       Model("Configuracao").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("EtapaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("CategoriaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("ContaCorrenteOmie").find({ tenantId }).select("baseOmieId codigo descricao banco status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
-      Model("Gatilho").find({ tenantId }).populate("templateDocumentoId templateAssuntoId templateCorpoId", "codigo descricao tipo versao").sort({ descricao: 1 }).lean(),
+      Model("Gatilho").find({ tenantId }).populate("templateDocumentoId templateAssuntoId templateCorpoId", "codigo descricao tipo versao contratoVariaveis").sort({ descricao: 1 }).lean(),
       Model("GatilhoBase").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ createdAt: 1 }).lean(),
       sendgrid.getPublic(tenantId),
     ]);
@@ -338,12 +338,12 @@ defineRoutes("/api/doc-custom", (router) => {
   });
   router.private.post("/templates", { permission: "templates.manage", audit: { entidade: "Template", acao: "criado" } }, async (req, res) => {
     const input = req.body || {};
-    const template = await Model("Template").create({ tenantId: req.accessContext.tenantId, codigo: input.codigo, descricao: input.descricao || input.codigo, tipo: input.tipo, versao: Number(input.versao || 1), conteudo: input.conteudo, status: input.status || "ativo" });
+    const template = await Model("Template").create({ tenantId: req.accessContext.tenantId, codigo: input.codigo, descricao: input.descricao || input.codigo, tipo: input.tipo, versao: Number(input.versao || 1), contratoVariaveis: input.contratoVariaveis || "native-v2", conteudo: input.conteudo, status: input.status || "ativo" });
     res.status(201).json({ message: "Template criado com sucesso.", template });
   });
   router.private.put("/templates/:id", { permission: "templates.manage", audit: { entidade: "Template", acao: "atualizado" } }, async (req, res) => {
     const input = req.body || {};
-    const template = await Model("Template").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId }, { $set: { codigo: input.codigo, descricao: input.descricao || input.codigo, tipo: input.tipo, versao: Number(input.versao || 1), conteudo: input.conteudo, status: input.status || "ativo" } }, { new: true, runValidators: true });
+    const template = await Model("Template").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId }, { $set: { codigo: input.codigo, descricao: input.descricao || input.codigo, tipo: input.tipo, versao: Number(input.versao || 1), contratoVariaveis: input.contratoVariaveis || "legacy-v1", conteudo: input.conteudo, status: input.status || "ativo" } }, { new: true, runValidators: true });
     if (!template) throw new GenericError("Template nao encontrado.", { statusCode: 404 });
     res.json({ message: "Template atualizado com sucesso.", template });
   });

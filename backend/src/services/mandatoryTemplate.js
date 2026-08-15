@@ -25,6 +25,7 @@ async function importMandatoryTemplate(accessContext) {
     const template = await Template.create({
       ...filter,
       descricao: "Fatura de OS multimoedas obrigatoria da issue #2",
+      contratoVariaveis: "native-v2",
       conteudo: content(),
       status: "ativo",
     });

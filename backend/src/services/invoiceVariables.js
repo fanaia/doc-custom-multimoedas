@@ -66,8 +66,6 @@ async function buildVariables({ tenantId, base, codigoOs, numeroOs, processoId, 
     codigo: item.codigo,
     descricao: item.descricao || "",
     conteudo: item.conteudo,
-    // O model legado possui este nome com a grafia "contenType".
-    contenType: item.contentType,
     contentType: item.contentType,
     nomeArquivo: item.nomeArquivo,
     tamanho: item.tamanho,
@@ -82,7 +80,6 @@ async function buildVariables({ tenantId, base, codigoOs, numeroOs, processoId, 
     },
     moedas,
     configuracoes,
-    caracteristicas: configuracoes,
     includes,
   };
 }
