@@ -11,6 +11,11 @@ defineTenantModel({
     descricao: fields.string({ required: true, label: "Descricao", searchable: true }),
     tipo: fields.enum(["documento", "assunto", "corpo-email"], { required: true, label: "Tipo" }),
     versao: fields.number({ required: true, label: "Versao", default: 1 }),
+    contratoVariaveis: fields.enum(["legacy-v1", "native-v2"], {
+      required: true,
+      label: "Contrato de variaveis",
+      default: "legacy-v1",
+    }),
     conteudo: fields.string({ required: true, label: "Conteudo EJS", searchable: false }),
     status: businessStatus(),
   },
