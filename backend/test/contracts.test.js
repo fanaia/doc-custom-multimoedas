@@ -62,7 +62,7 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
 test("normalização de webhook é canônica e preserva id do evento", () => {
   assert.equal(canonical({ b: 2, a: { d: 4, c: 3 } }), canonical({ a: { c: 3, d: 4 }, b: 2 }));
   const normalized = normalizeWebhook({
-    topic: "OrdemServico.Alterada", eventId: "evt-42", appKey: "base-a",
+    topic: "OrdemServico.EtapaAlterada", eventId: "evt-42", appKey: "base-a",
     event: { nCodOS: 123, cEtapa: "50" },
   });
   assert.deepEqual(
@@ -70,7 +70,6 @@ test("normalização de webhook é canônica e preserva id do evento", () => {
     { eventId: "evt-42", codigoOs: "123", etapa: "50", ping: false },
   );
   assert.equal(normalizeWebhook({ topic: "ping", ping: true }).ping, true);
-  assert.equal(isOsStageEvent("OrdemServico.Alterada"), true);
   const omieConnect = normalizeWebhook({
     messageId: "msg-65", topic: "OrdemServico.EtapaAlterada", appKey: "base-a",
     event: { numeroOrdemServico: "65", idOrdemServico: 4951204645, etapa: "20" },
@@ -80,7 +79,7 @@ test("normalização de webhook é canônica e preserva id do evento", () => {
     { eventId: "msg-65", codigoOs: "4951204645", numeroOs: "65", etapa: "20" },
   );
   assert.equal(isOsStageEvent("OrdemServico.EtapaAlterada"), true);
-  assert.equal(isOsStageEvent("Ordem de Serviço - mudança de etapa"), true);
+  assert.equal(isOsStageEvent("Ordem de Serviço - mudança de etapa"), false);
   assert.equal(isOsStageEvent("OrdemServico.Incluida"), false);
   assert.equal(isOsStageEvent("PedidoVenda.Alterado"), false);
   assert.equal(matchesAppKeyMask("3908593091403", "39••••••••03"), true);
