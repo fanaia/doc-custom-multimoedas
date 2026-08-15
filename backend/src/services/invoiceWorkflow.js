@@ -8,7 +8,7 @@ const { sendEmail } = require("./emailSender");
 const { credentials: sendgridCredentials } = require("./sendgridCredentials");
 const gateway = require("./integrations/omieGateway");
 const { buildVariables } = require("./invoiceVariables");
-const { renderPdf } = require("./pdfRenderer");
+const { renderPdf, usesFallbackPdf } = require("./pdfRenderer");
 const { normalizeRecipients } = require("./recipients");
 const { generateToken, sha256Buffer } = require("./security");
 const { errorSummary, sanitize } = require("./sanitization");
@@ -156,32 +156,32 @@ function invoiceFilename(number) {
   return `invoice-${String(number).replace(/[^a-z0-9._-]/gi, "-")}-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
 }
 
-async function generateInvoice(process, actor, adapters = {}) {
+async function generateInvoice(invoiceProcess, actor, adapters = {}) {
   const startedAt = new Date();
-  const accessContext = internalAccess(process.tenantId);
-  const { base, trigger } = await loadTriggerContext(process, accessContext);
-  await Model("ProcessoFatura").updateOne({ _id: process._id, tenantId: process.tenantId }, {
+  const accessContext = internalAccess(invoiceProcess.tenantId);
+  const { base, trigger } = await loadTriggerContext(invoiceProcess, accessContext);
+  await Model("ProcessoFatura").updateOne({ _id: invoiceProcess._id, tenantId: invoiceProcess.tenantId }, {
     $set: { etapa: "Gerar fatura", status: "ativo", falhaNaEtapa: "", ultimoErro: {} },
   });
   const variables = await (adapters.buildVariables || buildVariables)({
-    tenantId: String(process.tenantId),
+    tenantId: String(invoiceProcess.tenantId),
     base,
-    codigoOs: process.codigoOs,
-    numeroOs: process.numeroOs,
-    processoId: process._id,
+    codigoOs: invoiceProcess.codigoOs,
+    numeroOs: invoiceProcess.numeroOs,
+    processoId: invoiceProcess._id,
     accessContext,
     adapters,
   });
-  const templates = await loadTemplates(trigger, process.tenantId);
+  const templates = await loadTemplates(trigger, invoiceProcess.tenantId);
   const { html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions);
   const pdf = await (adapters.renderPdf || renderPdf)(html, adapters);
   const hash = sha256Buffer(pdf);
   const filename = invoiceFilename(variables.os.Cabecalho.cNumOS);
   const artifact = await Model("ArtefatoPdf").findOneAndUpdate(
-    { tenantId: process.tenantId, processoId: process._id },
+    { tenantId: invoiceProcess.tenantId, processoId: invoiceProcess._id },
     { $setOnInsert: {
-      tenantId: process.tenantId,
-      processoId: process._id,
+      tenantId: invoiceProcess.tenantId,
+      processoId: invoiceProcess._id,
       nomeArquivo: filename,
       hash,
       tamanho: pdf.length,
@@ -194,8 +194,8 @@ async function generateInvoice(process, actor, adapters = {}) {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   const warnings = variables.moedas.map((item) => item.alerta).filter(Boolean);
-  if (!process.env.PDF_RENDERER_URL) warnings.push("PDF gerado pelo renderer de contingencia; configure PDF_RENDERER_URL para fidelidade HTML/CSS.");
-  await Model("ProcessoFatura").updateOne({ _id: process._id, tenantId: process.tenantId }, {
+  if (usesFallbackPdf(adapters)) warnings.push("PDF gerado pelo renderer de contingencia; configure PDF_RENDERER_URL para fidelidade HTML/CSS.");
+  await Model("ProcessoFatura").updateOne({ _id: invoiceProcess._id, tenantId: invoiceProcess.tenantId }, {
     $set: {
       etapa: "Aprovar fatura",
       status: "ativo",
@@ -211,14 +211,14 @@ async function generateInvoice(process, actor, adapters = {}) {
       alerta: warnings.join(" "),
     },
   });
-  await recordEvent(process, {
+  await recordEvent(invoiceProcess, {
     stage: "Gerar fatura",
     result: "sucesso",
     startedAt,
     userId: actor.userId,
     details: { pdfHash: hash, filename, cotacoes: variables.moedas },
   });
-  return loadProcess(process._id, accessContext);
+  return loadProcess(invoiceProcess._id, accessContext);
 }
 
 async function attachInvoice(process, actor, adapters = {}) {
