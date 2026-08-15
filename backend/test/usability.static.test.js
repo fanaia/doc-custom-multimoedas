@@ -59,6 +59,7 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   const sender = read("src/services/emailSender.js");
   const credentials = read("src/services/sendgridCredentials.js");
   const webhook = read("src/services/baseCredentials.js");
+  const webhookService = read("src/services/webhookService.js");
   const frontend = read("../frontend/src/main.tsx");
   assert.doesNotMatch(sender, /process\.env\.SENDGRID_API_KEY/);
   assert.match(credentials, /Config\(\)\.findOne\(\{ tenantId/);
@@ -75,6 +76,8 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   assert.match(frontend, /Tópico obrigatório no Omie/);
   assert.match(frontend, /Etapa da Ordem de Serviço alterada/);
   assert.match(frontend, /OrdemServico\.EtapaAlterada/);
+  assert.match(webhookService, /message: "Tópico ignorado\."/);
+  assert.match(webhookService, /integrationTickets\.success\(ticket, \{ resposta: response, codigoExterno: normalized\.eventId, mensagem: response\.message \}\)/);
   assert.match(frontend, /Não é necessário cadastrar inclusão, exclusão ou faturamento/);
 });
 
