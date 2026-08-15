@@ -13,6 +13,7 @@ const { normalizeRecipients } = require("./recipients");
 const { generateToken, sha256Buffer } = require("./security");
 const { errorSummary, sanitize } = require("./sanitization");
 const { renderTemplate } = require("./templateRenderer");
+const { contractVersion, variablesForTemplate } = require("./templateContracts");
 
 function Model(name) {
   return registry.getModel(name).mongooseModel;
@@ -111,7 +112,8 @@ async function loadTemplates(trigger, tenantId) {
 
 function templateSnapshot(templates) {
   return Object.fromEntries(Object.entries(templates).map(([key, item]) => [key, {
-    id: String(item._id), codigo: item.codigo, versao: item.versao, tipo: item.tipo, conteudo: item.conteudo,
+    id: String(item._id), codigo: item.codigo, versao: item.versao, tipo: item.tipo,
+    contratoVariaveis: contractVersion(item), conteudo: item.conteudo,
   }]));
 }
 
@@ -133,7 +135,7 @@ function renderConfiguredTemplate(template, variables, options) {
     });
   }
   try {
-    return renderTemplate(template.conteudo, variables, options);
+    return renderTemplate(template.conteudo, variablesForTemplate(template, variables), options);
   } catch (error) {
     throw new GenericError(`Falha no template ${template.tipo} "${template.codigo}" v${template.versao}: ${error.message}`, {
       statusCode: error.statusCode || 422,
@@ -500,8 +502,14 @@ async function previewTemplate(templateId, accessContext, input, adapters = {}) 
     accessContext,
     adapters,
   });
-  const rendered = renderTemplate(template.conteudo, variables, adapters.templateOptions);
-  const result = { rendered, variables: sanitize(variables), tipo: template.tipo };
+  const templateVariables = variablesForTemplate(template, variables);
+  const rendered = renderTemplate(template.conteudo, templateVariables, adapters.templateOptions);
+  const result = {
+    rendered,
+    variables: sanitize(templateVariables),
+    tipo: template.tipo,
+    contratoVariaveis: contractVersion(template),
+  };
   if (template.tipo === "documento") {
     const pdf = await (adapters.renderPdf || renderPdf)(rendered, adapters);
     result.html = rendered;
