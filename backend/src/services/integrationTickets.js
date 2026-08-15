@@ -16,10 +16,10 @@ async function start({ tenantId, provider, operacao, baseOmieId, processoId, req
   return Ticket().create({ tenantId: String(tenantId), provider, operacao, baseOmieId, processoId, requisicao: safe(requisicao), status: "processando", iniciadoEm: new Date() });
 }
 
-async function success(ticket, { resposta, codigoExterno } = {}) {
+async function success(ticket, { resposta, codigoExterno, mensagem } = {}) {
   if (!ticket) return;
   const now = new Date();
-  await Ticket().updateOne({ _id: ticket._id, tenantId: ticket.tenantId }, { $set: { status: "sucesso", resposta: safe(resposta), codigoExterno: String(codigoExterno || ""), finalizadoEm: now, duracaoMs: now.getTime() - new Date(ticket.iniciadoEm).getTime() } });
+  await Ticket().updateOne({ _id: ticket._id, tenantId: ticket.tenantId }, { $set: { status: "sucesso", resposta: safe(resposta), codigoExterno: String(codigoExterno || ""), mensagem: String(mensagem || "").slice(0, 1000), finalizadoEm: now, duracaoMs: now.getTime() - new Date(ticket.iniciadoEm).getTime() } });
 }
 
 async function failure(ticket, error) {
