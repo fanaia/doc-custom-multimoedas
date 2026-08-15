@@ -86,12 +86,53 @@ async function findProcessByIdempotencyKey(key, tenantId) {
   return process;
 }
 
+async function archivePreviousUnsentProcesses({ base, trigger, normalized, currentProcessId }) {
+  const filter = {
+    tenantId: String(base.tenantId),
+    baseOmieId: base._id,
+    gatilhoId: trigger._id,
+    codigoOs: normalized.codigoOs,
+    _id: { $ne: currentProcessId },
+    status: { $in: ["ativo", "falha", "rejeitado"] },
+    $or: [{ emailEnviadoEm: null }, { emailEnviadoEm: { $exists: false } }],
+  };
+  const previous = await Model("ProcessoFatura").find(filter).select("+tenantId");
+  if (!previous.length) return 0;
+  const now = new Date();
+  const ids = previous.map((process) => process._id);
+  await Model("ProcessoFatura").updateMany({ ...filter, _id: { $in: ids } }, {
+    $set: {
+      etapa: "Arquivado",
+      status: "arquivado",
+      concluidoEm: now,
+      alerta: "Arquivado automaticamente após nova entrada da OS na etapa de geração.",
+    },
+  });
+  await Model("EventoProcesso").insertMany(previous.map((process) => ({
+    tenantId: String(base.tenantId),
+    processoId: process._id,
+    etapa: "Arquivado",
+    tentativa: Number(process.tentativas || 0) + 1,
+    resultado: "ignorado",
+    iniciadoEm: now,
+    finalizadoEm: now,
+    duracaoMs: 0,
+    usuarioId: "webhook-omie",
+    mensagem: "Processo anterior não enviado arquivado por nova entrada da OS na etapa de geração.",
+    detalhes: { substituidoPor: String(currentProcessId), eventId: normalized.eventId },
+  })));
+  return previous.length;
+}
+
 async function createProcess({ base, mapping, trigger, normalized }) {
   const key = hash([
     "invoice", base.tenantId, base._id, normalized.codigoOs, trigger._id, normalized.eventId,
   ].join(":"));
   const existing = await findProcessByIdempotencyKey(key, base.tenantId);
-  if (existing) return { process: existing, duplicate: true };
+  if (existing) {
+    const archived = await archivePreviousUnsentProcesses({ base, trigger, normalized, currentProcessId: existing._id });
+    return { process: existing, duplicate: true, archived };
+  }
   try {
     const process = await Model("ProcessoFatura").create({
       tenantId: String(base.tenantId),
@@ -119,7 +160,8 @@ async function createProcess({ base, mapping, trigger, normalized }) {
       mensagem: "Processo criado por alteracao de etapa da OS.",
       detalhes: { eventId: normalized.eventId, topic: normalized.topic },
     });
-    return { process, duplicate: false };
+    const archived = await archivePreviousUnsentProcesses({ base, trigger, normalized, currentProcessId: process._id });
+    return { process, duplicate: false, archived };
   } catch (error) {
     if (error?.code !== 11000) throw error;
     const process = await findProcessByIdempotencyKey(key, base.tenantId);
@@ -129,7 +171,8 @@ async function createProcess({ base, mapping, trigger, normalized }) {
         code: "WEBHOOK_PROCESS_CONFLICT",
       });
     }
-    return { process, duplicate: true };
+    const archived = await archivePreviousUnsentProcesses({ base, trigger, normalized, currentProcessId: process._id });
+    return { process, duplicate: true, archived };
   }
 }
 
@@ -179,7 +222,7 @@ async function receiveWebhook(token, payload) {
             code: "WEBHOOK_PROCESS_NOT_PERSISTED",
           });
         }
-        results.push({ id: String(result.process._id), duplicate: result.duplicate });
+        results.push({ id: String(result.process._id), duplicate: result.duplicate, archived: result.archived });
       }
       response = {
         accepted: true,
@@ -197,4 +240,4 @@ async function receiveWebhook(token, payload) {
   }
 }
 
-module.exports = { canonical, createProcess, findProcessByIdempotencyKey, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
+module.exports = { archivePreviousUnsentProcesses, canonical, createProcess, findProcessByIdempotencyKey, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
