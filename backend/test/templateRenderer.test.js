@@ -84,3 +84,17 @@ test("template obrigatório renderiza sem logo e respeita o MIME do arquivo", ()
   const withPng = renderTemplate(content(), { ...variables, includes: [{ codigo: "logo", conteudo: "iVBORw0KGgo=", contentType: "image/png" }] });
   assert.match(withPng, /data:image\/png;base64,iVBORw0KGgo=/);
 });
+
+test("assunto e corpo de email legados acessam os dados Omie sem adaptacao", () => {
+  const emailTemplate = `<%
+let dataRps = os.InformacoesAdicionais.dDataRps ? os.InformacoesAdicionais.dDataRps.split("/") : [];
+let competencia = "";
+if(dataRps.length > 2) { competencia = \`\${dataRps[1]}/\${dataRps[2]}\`; }
+%><%= cliente.razao_social %> - FATURAMENTO/ INVOICING EUROPARTNER <%= competencia %>`;
+  const variables = {
+    os: { InformacoesAdicionais: { dDataRps: "14/08/2026" } },
+    cliente: { razao_social: "Cliente Legado Ltda." },
+  };
+  const rendered = renderTemplate(emailTemplate, variables);
+  assert.equal(rendered, "Cliente Legado Ltda. - FATURAMENTO/ INVOICING EUROPARTNER 08/2026");
+});
