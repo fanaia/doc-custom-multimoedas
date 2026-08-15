@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const { content } = require("../src/services/mandatoryTemplate");
 const { renderTemplate } = require("../src/services/templateRenderer");
+const { variablesSnapshot } = require("../src/services/invoiceWorkflow");
 
 test("renderiza EJS com escape, saída crua e iteração", () => {
   const rendered = renderTemplate(
@@ -97,4 +98,18 @@ if(dataRps.length > 2) { competencia = \`\${dataRps[1]}/\${dataRps[2]}\`; }
   };
   const rendered = renderTemplate(emailTemplate, variables);
   assert.equal(rendered, "Cliente Legado Ltda. - FATURAMENTO/ INVOICING EUROPARTNER 08/2026");
+});
+
+test("snapshot do processo nao persiste o Base64 das imagens", () => {
+  const variables = {
+    os: { Cabecalho: { cNumOS: "144" } },
+    includes: [{ codigo: "logo", conteudo: "A".repeat(2 * 1024 * 1024), contentType: "image/png" }],
+  };
+  const snapshot = variablesSnapshot(variables);
+  assert.equal(snapshot.os.Cabecalho.cNumOS, "144");
+  assert.equal(snapshot.includes[0].codigo, "logo");
+  assert.equal(snapshot.includes[0].contentType, "image/png");
+  assert.equal(snapshot.includes[0].conteudoOmitido, true);
+  assert.equal("conteudo" in snapshot.includes[0], false);
+  assert.equal(variables.includes[0].conteudo.length, 2 * 1024 * 1024);
 });
