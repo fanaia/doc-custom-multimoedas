@@ -23,7 +23,7 @@ Falhas ficam na etapa `Falha`, com etapa de origem, tentativa, duração e erro 
 - O frontend é integralmente declarativo: home, painel, cadastros, filtros, esteira, detalhe, ações condicionais e auditoria são definidos em `frontend/central.ui.json`.
 - Shell, autenticação, RBAC, CRUD, metadata e auditoria HTTP continuam pertencendo ao OonCore.
 
-Os módulos nativos `integrations` e `omie` permanecem desabilitados no OonCore 0.4.5 porque seus modelos/rotas técnicos não têm isolamento por tenant em deployment compartilhado. A integração de OS desta Central usa models e rotas tenant-scoped próprios. O gap do Core está rastreado em [oondemand/oon-platform#106](https://github.com/oondemand/oon-platform/issues/106).
+Os módulos nativos `integrations` e `omie` permanecem desabilitados no OonCore 0.4.7 porque seus modelos/rotas técnicos não têm isolamento por tenant em deployment compartilhado. A integração de OS desta Central usa models e rotas tenant-scoped próprios. O gap do Core está rastreado em [oondemand/oon-platform#106](https://github.com/oondemand/oon-platform/issues/106).
 
 ## Configuração local
 
@@ -39,10 +39,11 @@ Configure no backend:
 - `DEV_TOKEN` e `DEV_TENANT_ID` para desenvolvimento;
 - `DOC_CUSTOM_CREDENTIALS_ENCRYPTION_KEY` com pelo menos 32 caracteres;
 - `PUBLIC_APP_URL` para formar URLs de webhook;
-- `SENDGRID_API_KEY`;
-- `PDF_RENDERER_URL` e, se necessário, `PDF_RENDERER_TOKEN`.
+- `SENDGRID_API_KEY`.
 
-O fallback PDF textual existe para desenvolvimento. Em produção, use `PDF_REQUIRE_RENDERER=true` para exigir um renderer HTML/CSS real.
+PDF é uma capability obrigatória declarada no `oon.deploy.json`. Em ambiente publicado, URL e credencial são resolvidas pela Plataforma e usadas somente pelo OonCore. A Central não aceita `PDF_RENDERER_URL`, não contém fallback textual e falha explicitamente quando a capability está indisponível. Testes unitários podem injetar `adapters.renderPdf`.
+
+Antes de chamar o Core, a esteira persiste com segurança o HTML, versões dos templates, variáveis e snapshots de e-mail. Uma falha transitória pode ser retomada usando exatamente o mesmo HTML, sem anexar ou enviar nada antes da geração bem-sucedida. Artefatos antigos não são sobrescritos; a ação de reprocessamento cria um novo processo relacionado.
 
 ```bash
 npm run dev:backend

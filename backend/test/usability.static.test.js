@@ -41,7 +41,8 @@ test("aprovacao nao sombreia o process global e preserva os dois identificadores
   assert.doesNotMatch(workflow, /const process = await Model\("ProcessoFatura"\)\.findOneAndUpdate/);
   assert.doesNotMatch(workflow, /process\.env\.PDF_RENDERER_URL/);
   assert.match(workflow, /generateInvoice\(invoiceProcess, actor, adapters/);
-  assert.match(workflow, /usesFallbackPdf\(adapters\)/);
+  assert.doesNotMatch(workflow, /usesFallbackPdf|fallbackPdf/);
+  assert.match(workflow, /htmlSnapshotPendente/);
   assert.match(workflow, /numeroOs: invoiceProcess\.numeroOs/);
   assert.match(webhook, /codigoOs: String\(codigoOs \|\| numeroOs \|\| ""\), numeroOs: String\(numeroOs \|\| ""\)/);
 });

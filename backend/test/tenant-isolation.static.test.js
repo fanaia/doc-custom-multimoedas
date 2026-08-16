@@ -12,7 +12,7 @@ test("Pessoa usa escopo obrigatório por tenant no app multi-tenant", () => {
   assert.equal(app.tenancyModel, "multi_tenant");
   assert.equal(app.deploymentMode, "shared");
   assert.match(pessoa, /scope:\s*["']tenant["']/);
-  assert.equal(backend.dependencies["@oondemand/oon-core-back"], "^0.4.5");
+  assert.equal(backend.dependencies["@oondemand/oon-core-back"], "^0.4.7");
 });
 
 test("tenantId permanece interno e não é declarado como campo de formulário", () => {

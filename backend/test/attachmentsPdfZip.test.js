@@ -5,31 +5,12 @@ const test = require("node:test");
 const zlib = require("node:zlib");
 const { collectOmieAttachments } = require("../src/services/attachments");
 const { attachmentBytes, sendEmail } = require("../src/services/emailSender");
-const { assertPdf, fallbackPdf, stripHtml, usesFallbackPdf } = require("../src/services/pdfRenderer");
+const { assertPdf } = require("../src/services/pdfRenderer");
 const { sha256Buffer } = require("../src/services/security");
 const { crc32, zipSingleFile } = require("../src/services/zipFile");
 
-test("PDF de contingência é válido e preserva conteúdo textual", () => {
-  assert.equal(stripHtml("<style>x</style><p>A &amp; B<br>C</p>"), "A & B\nC");
-  const pdf = fallbackPdf("<h1>Invoice OS-42</h1><p>Total 100</p>");
-  assert.ok(pdf.subarray(0, 8).toString().startsWith("%PDF-1."));
-  assert.ok(pdf.toString().endsWith("%%EOF"));
-  assert.match(pdf.toString(), /Invoice OS-42/);
-  assert.throws(() => assertPdf(Buffer.from("not-a-pdf")), (error) => error.code === "PDF_RENDERER_INVALID_OUTPUT");
-});
-
-test("identifica renderer de contingencia sem depender do ticket chamado process", () => {
-  const previous = process.env.PDF_RENDERER_URL;
-  delete process.env.PDF_RENDERER_URL;
-  try {
-    assert.equal(usesFallbackPdf({}), true);
-    assert.equal(usesFallbackPdf({ renderPdf: async () => Buffer.from("%PDF-") }), false);
-    process.env.PDF_RENDERER_URL = "https://renderer.example/pdf";
-    assert.equal(usesFallbackPdf({}), false);
-  } finally {
-    if (previous === undefined) delete process.env.PDF_RENDERER_URL;
-    else process.env.PDF_RENDERER_URL = previous;
-  }
+test("rejeita bytes que não são PDF", () => {
+  assert.throws(() => assertPdf(Buffer.from("not-a-pdf")), (error) => error.code === "PDF_RENDERING_INVALID_OUTPUT");
 });
 
 test("ZIP Omie contém o PDF, tamanhos e CRC esperados", () => {
