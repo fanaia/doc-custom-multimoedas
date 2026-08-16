@@ -8,7 +8,7 @@ const { sendEmail } = require("./emailSender");
 const { credentials: sendgridCredentials } = require("./sendgridCredentials");
 const gateway = require("./integrations/omieGateway");
 const { buildVariables } = require("./invoiceVariables");
-const { renderPdf, usesFallbackPdf } = require("./pdfRenderer");
+const { renderPdf } = require("./pdfRenderer");
 const { normalizeRecipients } = require("./recipients");
 const { generateToken, sha256Buffer } = require("./security");
 const { errorSummary, sanitize } = require("./sanitization");
@@ -61,7 +61,7 @@ async function acquireLock(id, accessContext) {
   }, {
     $set: { lockToken: token, lockUntil: new Date(now.getTime() + lockMs) },
     $inc: { tentativas: 1 },
-  }, { new: true }).select("+tenantId +lockToken");
+  }, { new: true }).select("+tenantId +lockToken +htmlSnapshotPendente");
   if (!lockedProcess) throw new GenericError("Processo em execucao; aguarde antes de tentar novamente.", {
     statusCode: 409,
     code: "PROCESS_LOCKED",
@@ -159,22 +159,60 @@ function invoiceFilename(number) {
 async function generateInvoice(invoiceProcess, actor, adapters = {}) {
   const startedAt = new Date();
   const accessContext = internalAccess(invoiceProcess.tenantId);
-  const { base, trigger } = await loadTriggerContext(invoiceProcess, accessContext);
   await Model("ProcessoFatura").updateOne({ _id: invoiceProcess._id, tenantId: invoiceProcess.tenantId }, {
     $set: { etapa: "Gerar fatura", status: "ativo", falhaNaEtapa: "", ultimoErro: {} },
   });
-  const variables = await (adapters.buildVariables || buildVariables)({
-    tenantId: String(invoiceProcess.tenantId),
-    base,
-    codigoOs: invoiceProcess.codigoOs,
-    numeroOs: invoiceProcess.numeroOs,
-    processoId: invoiceProcess._id,
-    accessContext,
-    adapters,
+  let variables;
+  let templates;
+  let html;
+  let subject;
+  let body;
+  const canReuseSnapshot = Boolean(
+    invoiceProcess.htmlSnapshotPendente
+      && invoiceProcess.templateSnapshot?.document?.codigo
+      && invoiceProcess.variaveisSnapshot?.os,
+  );
+  if (canReuseSnapshot) {
+    variables = invoiceProcess.variaveisSnapshot;
+    templates = invoiceProcess.templateSnapshot;
+    html = invoiceProcess.htmlSnapshotPendente;
+    subject = invoiceProcess.emailSnapshot?.subject || "";
+    body = invoiceProcess.emailSnapshot?.body || "";
+  } else {
+    const { base, trigger } = await loadTriggerContext(invoiceProcess, accessContext);
+    variables = await (adapters.buildVariables || buildVariables)({
+      tenantId: String(invoiceProcess.tenantId),
+      base,
+      codigoOs: invoiceProcess.codigoOs,
+      numeroOs: invoiceProcess.numeroOs,
+      processoId: invoiceProcess._id,
+      accessContext,
+      adapters,
+    });
+    templates = await loadTemplates(trigger, invoiceProcess.tenantId);
+    ({ html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions));
+    await Model("ProcessoFatura").updateOne({ _id: invoiceProcess._id, tenantId: invoiceProcess.tenantId }, {
+      $set: {
+        htmlSnapshotPendente: html,
+        codigoOs: String(variables.os.Cabecalho.nCodOS),
+        numeroOs: String(variables.os.Cabecalho.cNumOS),
+        clienteNome: String(variables.cliente.nome_fantasia || variables.cliente.razao_social || ""),
+        cotacoesUsadas: variables.moedas,
+        templateSnapshot: templateSnapshot(templates),
+        variaveisSnapshot: variablesSnapshot(variables),
+        emailSnapshot: { subject, body },
+      },
+    });
+  }
+  const pdf = await (adapters.renderPdf || renderPdf)(html, {
+    ...adapters,
+    context: {
+      tenantId: String(invoiceProcess.tenantId),
+      appCode: "doc-custom-multimoedas",
+      environment: process.env.APP_ENVIRONMENT,
+      integrationTicketId: String(invoiceProcess._id),
+    },
   });
-  const templates = await loadTemplates(trigger, invoiceProcess.tenantId);
-  const { html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions);
-  const pdf = await (adapters.renderPdf || renderPdf)(html, adapters);
   const hash = sha256Buffer(pdf);
   const filename = invoiceFilename(variables.os.Cabecalho.cNumOS);
   const artifact = await Model("ArtefatoPdf").findOneAndUpdate(
@@ -194,7 +232,6 @@ async function generateInvoice(invoiceProcess, actor, adapters = {}) {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   const warnings = variables.moedas.map((item) => item.alerta).filter(Boolean);
-  if (usesFallbackPdf(adapters)) warnings.push("PDF gerado pelo renderer de contingencia; configure PDF_RENDERER_URL para fidelidade HTML/CSS.");
   await Model("ProcessoFatura").updateOne({ _id: invoiceProcess._id, tenantId: invoiceProcess.tenantId }, {
     $set: {
       etapa: "Aprovar fatura",
@@ -210,6 +247,7 @@ async function generateInvoice(invoiceProcess, actor, adapters = {}) {
       emailSnapshot: { subject, body },
       alerta: warnings.join(" "),
     },
+    $unset: { htmlSnapshotPendente: 1 },
   });
   await recordEvent(invoiceProcess, {
     stage: "Gerar fatura",
@@ -483,7 +521,10 @@ async function previewTrigger(triggerId, accessContext, input, adapters = {}) {
     adapters,
   });
   const { html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions);
-  const pdf = await (adapters.renderPdf || renderPdf)(html, adapters);
+  const pdf = await (adapters.renderPdf || renderPdf)(html, {
+    ...adapters,
+    context: { tenantId: String(accessContext.tenantId), appCode: "doc-custom-multimoedas", environment: process.env.APP_ENVIRONMENT },
+  });
   return { html, subject, body, pdfBase64: pdf.toString("base64"), variables: sanitize(variables) };
 }
 
@@ -511,7 +552,10 @@ async function previewTemplate(templateId, accessContext, input, adapters = {}) 
     contratoVariaveis: contractVersion(template),
   };
   if (template.tipo === "documento") {
-    const pdf = await (adapters.renderPdf || renderPdf)(rendered, adapters);
+    const pdf = await (adapters.renderPdf || renderPdf)(rendered, {
+      ...adapters,
+      context: { tenantId: String(accessContext.tenantId), appCode: "doc-custom-multimoedas", environment: process.env.APP_ENVIRONMENT },
+    });
     result.html = rendered;
     result.pdfBase64 = pdf.toString("base64");
   }

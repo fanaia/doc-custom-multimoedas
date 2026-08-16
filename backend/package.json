@@ -13,6 +13,6 @@
     "deploy": "oonCore-back deploy"
   },
   "dependencies": {
-    "@oondemand/oon-core-back": "^0.4.5"
+    "@oondemand/oon-core-back": "^0.4.7"
   }
 }

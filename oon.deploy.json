@@ -7,6 +7,9 @@
     "frontend": { "path": "frontend" }
   },
   "resourceProfile": "small",
+  "capabilities": {
+    "pdfRendering": { "required": true, "minVersion": "1.0.0" }
+  },
   "health": {
     "livePath": "/health/live",
     "readyPath": "/api/ativacao/status",

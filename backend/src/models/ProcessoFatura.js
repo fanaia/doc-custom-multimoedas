@@ -56,6 +56,7 @@ defineTenantModel({
     templateSnapshot: { type: Object, default: {} },
     variaveisSnapshot: { type: Object, default: {} },
     emailSnapshot: { type: Object, default: {} },
+    htmlSnapshotPendente: { type: String, select: false },
     tentativas: fields.number({ label: "Tentativas", default: 0 }),
     ultimoErro: { type: Object, default: {} },
     iniciadoEm: fields.date({ required: true, label: "Inicio", default: Date.now }),
