@@ -219,7 +219,8 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
   if (query.error) return <Notice error={errorText(query.error)}/>;
   const data = query.data || {};
   const operation = data.operation || {};
-  const canEdit = operation.stage === "Enviar e-mail" && !invoiceProcess?.emailEnviadoEm;
+  const canEdit = ["Aprovar fatura", "Enviar e-mail"].includes(operation.stage) && !invoiceProcess?.emailEnviadoEm;
+  const canSend = operation.stage === "Enviar e-mail" && !invoiceProcess?.emailEnviadoEm;
   const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: operation.currency || "BRL" }).format(Number(value || 0));
   const bytes = (value: unknown) => value ? `${(Number(value) / 1024).toFixed(1)} KB` : "tamanho não informado";
   const recipientField = (label: string, hint: string, value: string, setValue: (next: string) => void, required = false) =>
@@ -242,14 +243,14 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
     </section>
 
     <section style={{...card,borderColor:canEdit?"#7dd3fc":"#dce3ea"}}>
-      <div style={{marginBottom:12}}><h3 style={{margin:"0 0 4px"}}>Quem receberá a fatura</h3><p style={{margin:0,color:"#64748b"}}>{canEdit?"Revise e ajuste a lista antes de confirmar o envio. Separe os endereços por linha, vírgula ou ponto e vírgula.":"Lista efetivamente utilizada ou prevista para o envio."}</p></div>
+      <div style={{marginBottom:12}}><h3 style={{margin:"0 0 4px"}}>Quem receberá a fatura</h3><p style={{margin:0,color:"#64748b"}}>{canEdit?(canSend?"Revise e ajuste a lista antes de confirmar o envio. Separe os endereços por linha, vírgula ou ponto e vírgula.":"Revise os destinatários antes de aprovar a fatura. A lista salva será mantida para a etapa de envio."):"Lista efetivamente utilizada no envio."}</p></div>
       <Notice message={message} error={error}/>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12}}>
         {recipientField("Para", "Destinatários principais; ao menos um é obrigatório.", to, setTo, true)}
         {recipientField("Cc", "Destinatários que receberão uma cópia visível.", cc, setCc)}
         {recipientField("Cco", "Destinatários que receberão uma cópia oculta.", bcc, setBcc)}
       </div>
-      {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button type="button" style={secondary} disabled={save.isPending||send.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":"Salvar para depois"}</button><button type="button" style={button} disabled={send.isPending||save.isPending||!to.trim()} onClick={()=>confirm("Confirmar o envio da fatura para os destinatários informados?")&&send.mutate()}>{send.isPending?"Enviando...":"Confirmar e enviar fatura"}</button></div></div>}
+      {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button type="button" style={canSend?secondary:button} disabled={save.isPending||send.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":canSend?"Salvar para depois":"Salvar destinatários"}</button>{canSend&&<button type="button" style={button} disabled={send.isPending||save.isPending||!to.trim()} onClick={()=>confirm("Confirmar o envio da fatura para os destinatários informados?")&&send.mutate()}>{send.isPending?"Enviando...":"Confirmar e enviar fatura"}</button>}</div></div>}
     </section>
 
     <section style={card}>
