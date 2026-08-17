@@ -45,6 +45,7 @@
       "dashboard.read",
       "process.read",
       "process.approve",
+      "process.recipients",
       "process.send",
       "process.retry",
       "process.reprocess",
@@ -80,13 +81,13 @@
         "code": "approver",
         "name": "Aprovador",
         "description": "Consulta processos e aprova ou rejeita o processamento e a fatura.",
-        "permissions": ["dashboard.read", "process.read", "process.approve", "audit.read"]
+        "permissions": ["dashboard.read", "process.read", "process.approve", "process.recipients", "audit.read"]
       },
       {
         "code": "operator",
         "name": "Operador",
         "description": "Consulta processos, confirma o envio e executa retentativas permitidas.",
-        "permissions": ["dashboard.read", "process.read", "process.send", "process.retry", "audit.read"]
+        "permissions": ["dashboard.read", "process.read", "process.recipients", "process.send", "process.retry", "audit.read"]
       },
       {
         "code": "viewer",

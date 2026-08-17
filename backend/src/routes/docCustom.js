@@ -6,12 +6,12 @@ const {
   registry,
 } = require("@oondemand/oon-core-back");
 const { configureCredentials, findScopedBase, getWebhookAccess, rotateWebhook } = require("../services/baseCredentials");
-const { getConfiguration } = require("../services/configuration");
+const { getConfiguration, resolvedConfigurations } = require("../services/configuration");
 const { sendEmail } = require("../services/emailSender");
 const gateway = require("../services/integrations/omieGateway");
 const workflow = require("../services/invoiceWorkflow");
 const { importMandatoryTemplate } = require("../services/mandatoryTemplate");
-const { normalizeRecipients } = require("../services/recipients");
+const { normalizeRecipients, withInternalCopies } = require("../services/recipients");
 const { errorSummary } = require("../services/sanitization");
 const { receiveWebhook } = require("../services/webhookService");
 const sendgrid = require("../services/sendgridCredentials");
@@ -357,8 +357,10 @@ defineRoutes("/api/doc-custom", (router) => {
     const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
     const variables = invoiceProcess.variaveisSnapshot || {};
     const configurations = variables.configuracoes || [];
+    const currentConfigurations = await resolvedConfigurations(req.accessContext.tenantId, invoiceProcess.baseOmieId);
+    const internalRecipients = getConfiguration(currentConfigurations, "email-destinatarios-internos", []);
     const configuredRecipients = invoiceProcess.destinatariosEnvio || {};
-    const recipients = normalizeRecipients(configuredRecipients.configured ? {
+    const recipients = withInternalCopies(normalizeRecipients(configuredRecipients.configured ? {
       to: configuredRecipients.to,
       cc: configuredRecipients.cc,
       bcc: configuredRecipients.bcc,
@@ -366,7 +368,7 @@ defineRoutes("/api/doc-custom", (router) => {
       to: [variables.cliente?.email, variables.os?.Email?.cEnviarPara],
       cc: [getConfiguration(configurations, "email-cc"), getConfiguration(configurations, "email-copia")],
       bcc: getConfiguration(configurations, "email-bcc"),
-    });
+    }), internalRecipients);
     const artifact = invoiceProcess.artefatoPdfId
       ? await Model("ArtefatoPdf").findOne({ _id: invoiceProcess.artefatoPdfId, tenantId: req.accessContext.tenantId }).lean()
       : null;
@@ -415,6 +417,7 @@ defineRoutes("/api/doc-custom", (router) => {
         serviceCount: Number(invoiceProcess.quantidadeServicos || services.length),
       },
       recipients,
+      internalRecipients: normalizeRecipients({ cc: internalRecipients }).cc,
       recipientsConfigured: Boolean(configuredRecipients.configured),
       recipientsUpdatedAt: configuredRecipients.updatedAt || null,
       invoice,
@@ -423,9 +426,9 @@ defineRoutes("/api/doc-custom", (router) => {
     });
   });
 
-  router.private.put("/processos/:id/envio/destinatarios", { permission: "process.send", audit: processAudit("destinatarios-atualizados") }, async (req, res) => {
+  router.private.put("/processos/:id/envio/destinatarios", { permission: "process.recipients", audit: processAudit("destinatarios-atualizados") }, async (req, res) => {
     const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
-    if (!["Aprovar fatura", "Enviar e-mail"].includes(invoiceProcess.etapa) || invoiceProcess.emailProviderId) {
+    if (!["Aprovar processamento", "Aprovar fatura", "Enviar e-mail"].includes(invoiceProcess.etapa) || invoiceProcess.emailProviderId) {
       throw new GenericError("Os destinatários só podem ser alterados antes da confirmação do envio.", { statusCode: 409 });
     }
     const recipients = normalizeRecipients(req.body || {});
@@ -446,7 +449,7 @@ defineRoutes("/api/doc-custom", (router) => {
       {
         _id: invoiceProcess._id,
         tenantId: req.accessContext.tenantId,
-        etapa: { $in: ["Aprovar fatura", "Enviar e-mail"] },
+        etapa: { $in: ["Aprovar processamento", "Aprovar fatura", "Enviar e-mail"] },
         emailProviderId: { $in: [null, ""] },
       },
       { $set: { destinatariosEnvio: { configured: true, ...recipients, updatedAt, updatedBy: actor(req).userId } } },
@@ -535,18 +538,57 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json({ message: "Imagem excluida com sucesso." });
   });
 
+  router.private.put("/configuracoes/destinatarios-internos", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "destinatarios-internos-atualizados" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const recipients = normalizeRecipients({ cc: req.body?.emails });
+    if (recipients.invalid.length) {
+      throw new GenericError(`E-mails internos inválidos: ${recipients.invalid.join(", ")}.`, {
+        statusCode: 422,
+        code: "INTERNAL_EMAIL_RECIPIENT_INVALID",
+      });
+    }
+    if (!recipients.cc.length) {
+      throw new GenericError("Informe ao menos um e-mail destinatário interno.", {
+        statusCode: 422,
+        code: "INTERNAL_EMAIL_RECIPIENT_REQUIRED",
+      });
+    }
+    const Config = Model("Configuracao");
+    const existing = await Config.findOne({
+      tenantId,
+      codigo: "email-destinatarios-internos",
+      $or: [{ baseOmieId: null }, { baseOmieId: { $exists: false } }],
+    });
+    const values = {
+      codigo: "email-destinatarios-internos",
+      descricao: "Destinatários internos das faturas",
+      tipo: "lista-emails",
+      valor: recipients.cc.join("\n"),
+      baseOmieId: null,
+      status: "ativo",
+    };
+    const configuracao = existing
+      ? await Config.findOneAndUpdate({ _id: existing._id, tenantId }, { $set: values }, { new: true, runValidators: true })
+      : await Config.create({ tenantId, ...values });
+    res.json({ message: "Destinatários internos atualizados com sucesso.", configuracao, emails: recipients.cc });
+  });
+
   router.private.post("/configuracoes", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "criada" } }, async (req, res) => {
-    const input = { ...(req.body || {}) }; if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else delete input.baseOmieId;
+    const input = { ...(req.body || {}) };
+    if (String(input.codigo || "") === "email-destinatarios-internos") {
+      throw new GenericError("Use a seção Cópias internas das faturas para alterar esta configuração.", { statusCode: 409 });
+    }
+    if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else delete input.baseOmieId;
     const configuracao = await Model("Configuracao").create({ tenantId: req.accessContext.tenantId, ...input });
     res.status(201).json({ configuracao });
   });
   router.private.put("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "atualizada" } }, async (req, res) => {
     const input = { ...(req.body || {}) }; if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else input.baseOmieId = null;
-    const configuracao = await Model("Configuracao").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId }, { $set: input }, { new: true, runValidators: true });
+    const configuracao = await Model("Configuracao").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $ne: "email-destinatarios-internos" } }, { $set: input }, { new: true, runValidators: true });
     if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ configuracao });
   });
   router.private.delete("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "excluida" } }, async (req, res) => {
-    const configuracao = await Model("Configuracao").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId });
+    const configuracao = await Model("Configuracao").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $ne: "email-destinatarios-internos" } });
     if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ message: "Configuracao excluida." });
   });
   router.private.post("/templates/obrigatorio/importar", { permission: "templates.manage", audit: { entidade: "Template", acao: "template-obrigatorio-importado" } }, async (req, res) => {

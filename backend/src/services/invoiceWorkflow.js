@@ -3,13 +3,13 @@
 const { GenericError, registry, scopedIdFilter } = require("@oondemand/oon-core-back");
 const { collectOmieAttachments } = require("./attachments");
 const { findScopedBase } = require("./baseCredentials");
-const { getConfiguration } = require("./configuration");
+const { getConfiguration, resolvedConfigurations } = require("./configuration");
 const { sendEmail } = require("./emailSender");
 const { credentials: sendgridCredentials } = require("./sendgridCredentials");
 const gateway = require("./integrations/omieGateway");
 const { buildVariables } = require("./invoiceVariables");
 const { renderPdf } = require("./pdfRenderer");
-const { normalizeRecipients } = require("./recipients");
+const { normalizeRecipients, withInternalCopies } = require("./recipients");
 const { generateToken, sha256Buffer } = require("./security");
 const { errorSummary, sanitize } = require("./sanitization");
 const { renderTemplate } = require("./templateRenderer");
@@ -340,8 +340,10 @@ async function sendInvoice(process, actor, adapters = {}) {
     if (!artifact) throw new GenericError("PDF aprovado nao encontrado.", { statusCode: 422 });
     const variables = current.variaveisSnapshot || {};
     const configurations = variables.configuracoes || [];
+    const currentConfigurations = await resolvedConfigurations(current.tenantId, current.baseOmieId);
+    const internalRecipients = getConfiguration(currentConfigurations, "email-destinatarios-internos", []);
     const configuredRecipients = current.destinatariosEnvio || {};
-    const recipients = normalizeRecipients(configuredRecipients.configured ? {
+    const recipients = withInternalCopies(normalizeRecipients(configuredRecipients.configured ? {
       to: configuredRecipients.to,
       cc: configuredRecipients.cc,
       bcc: configuredRecipients.bcc,
@@ -349,7 +351,7 @@ async function sendInvoice(process, actor, adapters = {}) {
       to: [variables.cliente?.email, variables.os?.Email?.cEnviarPara],
       cc: [getConfiguration(configurations, "email-cc"), getConfiguration(configurations, "email-copia")],
       bcc: getConfiguration(configurations, "email-bcc"),
-    });
+    }), internalRecipients);
     if (recipients.invalid.length) throw new GenericError(
       `Destinatarios invalidos: ${recipients.invalid.join(", ")}.`,
       { statusCode: 422, code: "EMAIL_RECIPIENT_INVALID" },

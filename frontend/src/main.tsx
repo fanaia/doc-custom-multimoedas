@@ -144,13 +144,25 @@ function GatilhosPage() {
 }
 
 function ConfiguracoesPage(){
-  const {http}=useOonApi();const query=useCatalogs();const cache=useQueryClient();const [baseFilter,setBaseFilter]=useState("");const [editing,setEditing]=useState<Item|null>();const [message,setMessage]=useState("");const [error,setError]=useState("");
+  const {http}=useOonApi();const query=useCatalogs();const cache=useQueryClient();const [baseFilter,setBaseFilter]=useState("");const [editing,setEditing]=useState<Item|null>();const [message,setMessage]=useState("");const [error,setError]=useState("");const [internalEmails,setInternalEmails]=useState("");
+  const internalConfig=(query.data?.configuracoes||[]).filter(item=>item.codigo==="email-destinatarios-internos"&&!item.baseOmieId)[0];
+  useEffect(()=>{setInternalEmails(String(internalConfig?.valor||""));},[internalConfig?._id,internalConfig?.valor]);
   const finish=(text:string)=>{setMessage(text);setError("");setEditing(undefined);cache.invalidateQueries({queryKey:["doc-custom-catalogs"]});};
   const save=useMutation({mutationFn:async({id,payload}:any)=>id?(await http.put(`/api/doc-custom/configuracoes/${id}`,payload)).data:(await http.post("/api/doc-custom/configuracoes",payload)).data,onSuccess:()=>finish("Configuração salva com sucesso."),onError:e=>setError(errorText(e))});
   const remove=useMutation({mutationFn:async(id:string)=>(await http.delete(`/api/doc-custom/configuracoes/${id}`)).data,onSuccess:()=>finish("Configuração excluída com sucesso."),onError:e=>setError(errorText(e))});
+  const saveInternal=useMutation({mutationFn:async()=>(await http.put("/api/doc-custom/configuracoes/destinatarios-internos",{emails:internalEmails})).data,onSuccess:data=>{setError("");setMessage(data.message);cache.invalidateQueries({queryKey:["doc-custom-catalogs"]});},onError:e=>{setMessage("");setError(errorText(e));}});
   function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();save.mutate({id:editing?._id,payload:Object.fromEntries(new FormData(event.currentTarget))});}
-  const rows=(query.data?.configuracoes||[]).filter(c=>!baseFilter||String(c.baseOmieId?._id||c.baseOmieId||"")===baseFilter);
-  return <div><Header title="Configurações" description="Adicione, altere e exclua parâmetros diretamente na grade."/><Notice message={message} error={error}/><div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}><select style={{...input,maxWidth:320}} value={baseFilter} onChange={e=>setBaseFilter(e.target.value)}><option value="">Todas as bases Omie</option>{query.data?.bases.map(b=><option key={b._id} value={b._id}>{b.nome}</option>)}</select><button style={button} onClick={()=>setEditing({} as Item)}>+ Nova configuração</button></div>
+  const rows=(query.data?.configuracoes||[]).filter(c=>c.codigo!=="email-destinatarios-internos"&&(!baseFilter||String(c.baseOmieId?._id||c.baseOmieId||"")===baseFilter));
+  return <div><Header title="Configurações" description="Defina os parâmetros usados na geração e no envio das faturas."/><Notice message={message} error={error}/>
+  <section style={{...card,borderColor:"#7dd3fc",background:"linear-gradient(135deg,#f0f9ff,#fff)",marginBottom:14}}>
+    <h2 style={{margin:"0 0 5px"}}>Cópias internas das faturas</h2>
+    <p style={{margin:"0 0 12px",color:"#475569"}}>Informe um ou mais e-mails da sua equipe. Eles serão incluídos automaticamente em <strong>Cc</strong> em toda fatura enviada ao cliente.</p>
+    <div style={{display:"grid",gridTemplateColumns:"minmax(280px,1fr) auto",gap:12,alignItems:"end"}}>
+      <label style={{display:"grid",gap:6,fontWeight:600}}><span>E-mails internos</span><textarea aria-label="E-mails internos das faturas" style={{...input,minHeight:92,resize:"vertical",fontFamily:"inherit",fontWeight:400}} value={internalEmails} onChange={event=>setInternalEmails(event.target.value)} placeholder={"financeiro@empresa.com.br\nfaturamento@empresa.com.br"}/><small style={{color:"#64748b",fontWeight:400}}>Separe os endereços por linha, vírgula ou ponto e vírgula.</small></label>
+      <button type="button" style={button} disabled={saveInternal.isPending||!internalEmails.trim()} onClick={()=>saveInternal.mutate()}>{saveInternal.isPending?"Salvando...":"Salvar cópias internas"}</button>
+    </div>
+  </section>
+  <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}><select style={{...input,maxWidth:320}} value={baseFilter} onChange={e=>setBaseFilter(e.target.value)}><option value="">Todas as bases Omie</option>{query.data?.bases.map(b=><option key={b._id} value={b._id}>{b.nome}</option>)}</select><button style={button} onClick={()=>setEditing({} as Item)}>+ Nova configuração</button></div>
   {editing!==undefined&&<form onSubmit={submit} style={{...card,display:"grid",gridTemplateColumns:"1fr 2fr 1fr 2fr 1fr",gap:10,marginBottom:14}}><input style={input} name="codigo" defaultValue={editing?.codigo||""} placeholder="Código" required/><input style={input} name="descricao" defaultValue={editing?.descricao||""} placeholder="Descrição" required/><select style={input} name="tipo" defaultValue={editing?.tipo||"texto"}><option value="texto">Texto</option><option value="numero">Número</option><option value="booleano">Booleano</option><option value="email">E-mail</option><option value="lista-emails">Lista de e-mails</option><option value="html">HTML</option></select><input style={input} name="valor" defaultValue={editing?.valor||""} placeholder="Valor" required/><select style={input} name="baseOmieId" defaultValue={editing?.baseOmieId?._id||editing?.baseOmieId||""}><option value="">Todas as bases</option>{query.data?.bases.map(b=><option key={b._id} value={b._id}>{b.nome}</option>)}</select><select style={input} name="status" defaultValue={editing?.status||"ativo"}><option value="ativo">Ativo</option><option value="inativo">Inativo</option></select><div><button style={button}>Salvar</button> <button type="button" style={secondary} onClick={()=>setEditing(undefined)}>Cancelar</button></div></form>}
   <div style={card}><table style={{width:"100%"}}><thead><tr><th align="left">Código</th><th align="left">Descrição</th><th align="left">Tipo</th><th align="left">Valor</th><th align="left">Base Omie</th><th align="left">Status</th><th align="left">Ações</th></tr></thead><tbody>{rows.map(c=><tr key={c._id}><td>{c.codigo}</td><td>{c.descricao}</td><td>{c.tipo}</td><td>{c.valor}</td><td>{c.baseOmieId?.nome||"Todas"}</td><td>{c.status}</td><td><button style={secondary} onClick={()=>setEditing(c)}>Alterar</button> <button style={danger} onClick={()=>confirm("Excluir esta configuração?")&&remove.mutate(c._id)}>Excluir</button></td></tr>)}</tbody></table></div></div>;
 }
@@ -278,7 +290,7 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
   if (query.error) return <Notice error={errorText(query.error)}/>;
   const data = query.data || {};
   const operation = data.operation || {};
-  const canEdit = ["Aprovar fatura", "Enviar e-mail"].includes(operation.stage) && !invoiceProcess?.emailEnviadoEm;
+  const canEdit = ["Aprovar processamento", "Aprovar fatura", "Enviar e-mail"].includes(operation.stage) && !invoiceProcess?.emailEnviadoEm;
   const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: operation.currency || "BRL" }).format(Number(value || 0));
   const bytes = (value: unknown) => value ? `${(Number(value) / 1024).toFixed(1)} KB` : "tamanho não informado";
   const recipientField = (label: string, hint: string, value: string, setValue: (next: string) => void, required = false) =>
@@ -305,9 +317,10 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
       <Notice message={message} error={error}/>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12}}>
         {recipientField("Para", "Destinatários principais; ao menos um é obrigatório.", to, setTo, true)}
-        {recipientField("Cc", "Destinatários que receberão uma cópia visível.", cc, setCc)}
+        {recipientField("Cc", "Cópias visíveis. Os destinatários internos configurados são incluídos automaticamente.", cc, setCc)}
         {recipientField("Cco", "Destinatários que receberão uma cópia oculta.", bcc, setBcc)}
       </div>
+      {!!data.internalRecipients?.length&&<p role="note" style={{margin:"12px 0 0",padding:"10px 12px",background:"#f0f9ff",borderRadius:8,color:"#075985"}}><strong>Cópias internas automáticas:</strong> {data.internalRecipients.join(", ")}</p>}
       {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><button type="button" style={button} disabled={save.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":"Salvar destinatários"}</button></div>}
     </section>
 
