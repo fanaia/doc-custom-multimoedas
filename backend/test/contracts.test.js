@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { registry, scopedIdFilter } = require("@oondemand/oon-core-back");
-const { archivePreviousUnsentProcesses, canonical, createProcess, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
+const { archivePreviousUnsentProcesses, archiveProcessesOutsideMappedStage, canonical, createProcess, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
 const { assertOsContract, normalizeOs } = require("../src/services/invoiceVariables");
 const { sanitize } = require("../src/services/sanitization");
 
@@ -162,6 +162,55 @@ test("nova entrada da OS arquiva somente processos anteriores ainda não enviado
     assert.equal(events[0].detalhes.substituidoPor, "507f1f77bcf86cd799439099");
   } finally {
     Process.find = originalFind;
+    Process.updateMany = originalUpdateMany;
+    Event.insertMany = originalInsertMany;
+  }
+});
+
+test("mudança para fora da etapa mapeada arquiva uma única vez o ticket não enviado", async () => {
+  const Process = registry.getModel("ProcessoFatura").mongooseModel;
+  const Mapping = registry.getModel("GatilhoBase").mongooseModel;
+  const Event = registry.getModel("EventoProcesso").mongooseModel;
+  const originalFindProcess = Process.find;
+  const originalFindMapping = Mapping.find;
+  const originalUpdateMany = Process.updateMany;
+  const originalInsertMany = Event.insertMany;
+  const process = {
+    _id: "507f1f77bcf86cd799439041",
+    gatilhoBaseId: "507f1f77bcf86cd799439012",
+    tentativas: 1,
+  };
+  let update;
+  let events;
+  try {
+    Process.find = (filter) => {
+      assert.equal(filter.codigoOs, "4951204645");
+      return { select: () => ({ lean: async () => [process] }) };
+    };
+    Mapping.find = () => ({ lean: async () => [{
+      _id: process.gatilhoBaseId,
+      etapaEnvio: "20",
+    }] });
+    Process.updateMany = async (filter, operation) => { update = { filter, operation }; };
+    Event.insertMany = async (items) => { events = items; };
+    const archived = await archiveProcessesOutsideMappedStage({
+      base: { _id: "507f1f77bcf86cd799439011", tenantId: "tenant-a" },
+      normalized: { codigoOs: "4951204645", etapa: "30", eventId: "move-65" },
+    });
+    assert.equal(archived, 1);
+    assert.equal(update.operation.$set.status, "arquivado");
+    assert.match(update.operation.$set.alerta, /etapa mapeada/);
+    assert.equal(events[0].detalhes.etapaMapeada, "20");
+    assert.equal(events[0].detalhes.etapaRecebida, "30");
+
+    Process.find = () => ({ select: () => ({ lean: async () => [] }) });
+    assert.equal(await archiveProcessesOutsideMappedStage({
+      base: { _id: "507f1f77bcf86cd799439011", tenantId: "tenant-a" },
+      normalized: { codigoOs: "4951204645", etapa: "30", eventId: "move-65" },
+    }), 0);
+  } finally {
+    Process.find = originalFindProcess;
+    Mapping.find = originalFindMapping;
     Process.updateMany = originalUpdateMany;
     Event.insertMany = originalInsertMany;
   }
