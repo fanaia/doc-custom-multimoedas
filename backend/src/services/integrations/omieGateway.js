@@ -119,16 +119,25 @@ function attachmentExternalCode(pdf) {
   return `oon-${documentKey}`;
 }
 
-async function incluirPdf(base, accessContext, os, filename, pdf, options) {
+function attachmentPayload(filename, pdf) {
   const zip = zipSingleFile(filename, pdf);
+  const base64File = zip.toString("base64");
+  return {
+    cArquivo: base64File,
+    cMd5: crypto.createHash("md5").update(base64File, "utf8").digest("hex"),
+  };
+}
+
+async function incluirPdf(base, accessContext, os, filename, pdf, options) {
+  const attachment = attachmentPayload(filename, pdf);
   return call(base, accessContext, "geral/anexo/", "IncluirAnexo", {
     cCodIntAnexo: attachmentExternalCode(pdf),
     cTabela: "ordem-servico",
     nId: Number(os.Cabecalho.nCodOS),
     cNomeArquivo: filename,
     cTipoArquivo: "pdf",
-    cArquivo: zip.toString("base64"),
-    cMd5: crypto.createHash("md5").update(zip).digest("hex"),
+    cArquivo: attachment.cArquivo,
+    cMd5: attachment.cMd5,
   }, options);
 }
 
@@ -186,6 +195,7 @@ async function atualizarEtapa(base, accessContext, os, etapa, observacao, option
 
 module.exports = {
   attachmentExternalCode,
+  attachmentPayload,
   atualizarEtapa,
   buildStageUpdate,
   call,
