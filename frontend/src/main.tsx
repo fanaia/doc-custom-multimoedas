@@ -218,7 +218,7 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
   if (query.error) return <Notice error={errorText(query.error)}/>;
   const data = query.data || {};
   const operation = data.operation || {};
-  const canEdit = invoiceProcess?.etapa === "Enviar e-mail" && !invoiceProcess?.emailEnviadoEm;
+  const canEdit = operation.stage === "Enviar e-mail" && !invoiceProcess?.emailEnviadoEm;
   const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: operation.currency || "BRL" }).format(Number(value || 0));
   const bytes = (value: unknown) => value ? `${(Number(value) / 1024).toFixed(1)} KB` : "tamanho não informado";
   const recipientField = (label: string, hint: string, value: string, setValue: (next: string) => void, required = false) =>
