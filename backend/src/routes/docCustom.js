@@ -449,7 +449,7 @@ defineRoutes("/api/doc-custom", (router) => {
       {
         _id: invoiceProcess._id,
         tenantId: req.accessContext.tenantId,
-        etapa: { $in: ["Aprovar fatura", "Enviar e-mail"] },
+        etapa: { $in: ["Aprovar processamento", "Aprovar fatura", "Enviar e-mail"] },
         emailProviderId: { $in: [null, ""] },
       },
       { $set: { destinatariosEnvio: { configured: true, ...recipients, updatedAt, updatedBy: actor(req).userId } } },
