@@ -314,14 +314,16 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.get("/processos-operacao", { permission: "process.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     const filter = { tenantId };
+    const safeRegex = (value) => String(value || "").slice(0, 120).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\    const filter = { tenantId };
+    if (req.query.baseOmieId)");
     if (req.query.baseOmieId) filter.baseOmieId = req.query.baseOmieId;
     if (req.query.etapa) filter.etapa = req.query.etapa;
     if (req.query.status) filter.status = req.query.status;
     if (req.query.os) filter.$or = [
-      { numeroOs: { $regex: String(req.query.os), $options: "i" } },
-      { codigoOs: { $regex: String(req.query.os), $options: "i" } },
+      { numeroOs: { $regex: safeRegex(req.query.os), $options: "i" } },
+      { codigoOs: { $regex: safeRegex(req.query.os), $options: "i" } },
     ];
-    if (req.query.cliente) filter.clienteNome = { $regex: String(req.query.cliente), $options: "i" };
+    if (req.query.cliente) filter.clienteNome = { $regex: safeRegex(req.query.cliente), $options: "i" };
     if (req.query.ativos === "true") filter.status = { $nin: ["arquivado"] };
     const processos = await Model("ProcessoFatura").find(filter)
       .populate("baseOmieId", "nome codigo ambiente")
