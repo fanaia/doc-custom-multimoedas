@@ -4,6 +4,7 @@ import { startCentralFromManifest, useOonApi } from "@oondemand/oon-core-front";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import app from "../../central.app.json";
 import ui from "../central.ui.json";
+import { FaturasOperacionaisPage } from "./FaturasOperacionaisPage";
 
 type Item = Record<string, any> & { _id: string };
 type Catalogs = { bases: Item[]; imagens: Item[]; templates: Item[]; documentos: Item[]; configuracoes: Item[]; etapas: Item[]; categorias: Item[]; contasCorrentes: Item[]; gatilhos: Item[]; mapeamentos: Item[]; sendgridConfig?: Item };
@@ -299,9 +300,11 @@ const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "Eta
 const uiManifest = {
   ...ui,
   collections: ui.collections.filter((collection) => !replaced.has(collection.model)),
+  pipelines: ui.pipelines.filter((pipeline) => pipeline.name !== "esteira-faturas"),
   documents: [],
   pages: [
     ...ui.pages,
+    { id: "esteira-faturas-operacional", path: "/esteira-faturas", label: "Esteira de faturas", title: "Faturas para decisão", section: "Operação", component: "FaturasOperacionaisPage", order: 1, permissions: ["process.read"] },
     { id: "bases-omie-operacao", path: "/bases-omie", label: "Bases Omie", title: "Bases Omie", section: "Configurações", component: "BasesOmiePage", order: 10, permissions: ["bases.read"] },
     { id: "configuracoes-operacao", path: "/configuracoes", label: "Configurações", title: "Configurações", section: "Configurações", component: "ConfiguracoesPage", order: 11, permissions: ["settings.read"] },
     { id: "integracoes-operacao", path: "/integracoes", label: "Integrações", title: "Integrações", section: "Configurações", component: "IntegracoesPage", order: 12, permissions: ["settings.read"] },
@@ -320,5 +323,5 @@ startCentralFromManifest({ app, ui: uiManifest as Parameters<typeof startCentral
   apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
   meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
-  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, InvoiceDecisionPanel, ProcessPdfViewer },
+  customComponents: { FaturasOperacionaisPage, BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, InvoiceDecisionPanel, ProcessPdfViewer },
 });
