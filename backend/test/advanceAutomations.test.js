@@ -14,6 +14,8 @@ test("monta alteração da OS com adiantamento conforme contrato legado do Omie"
     Parcelas: [{ nParcela: 1, nValor: 100 }, { nParcela: 2, nValor: 200 }],
   }, "50", "Invoice enviada.", { enabled: true, contaCorrenteCodigo: 456, categoriaCodigo: "1.01.02" });
   assert.equal(payload.Cabecalho.cEtapa, "50");
+  assert.equal(payload.Cabecalho.cCodParc, "999");
+  assert.equal(payload.Cabecalho.dDtPrevisao, "17/08/2026");
   assert.deepEqual(payload.Parcelas.map((item) => [item.parcela_adiantamento, item.categoria_adiantamento, item.conta_corrente_adiantamento]), [
     ["S", "1.01.02", 456], ["S", "1.01.02", 456],
   ]);
