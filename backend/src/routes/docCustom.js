@@ -311,6 +311,26 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json(await rotateWebhook(req.params.id, req.accessContext));
   });
 
+  router.private.get("/processos-operacao", { permission: "process.read" }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const filter = { tenantId };
+    if (req.query.baseOmieId) filter.baseOmieId = req.query.baseOmieId;
+    if (req.query.etapa) filter.etapa = req.query.etapa;
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.os) filter.$or = [
+      { numeroOs: { $regex: String(req.query.os), $options: "i" } },
+      { codigoOs: { $regex: String(req.query.os), $options: "i" } },
+    ];
+    if (req.query.cliente) filter.clienteNome = { $regex: String(req.query.cliente), $options: "i" };
+    if (req.query.ativos === "true") filter.status = { $nin: ["arquivado"] };
+    const processos = await Model("ProcessoFatura").find(filter)
+      .populate("baseOmieId", "nome codigo ambiente")
+      .sort({ iniciadoEm: -1 })
+      .limit(300)
+      .lean();
+    res.json({ processos, total: processos.length });
+  });
+
   router.private.post("/processos/:id/aprovar-processamento", { permission: "process.approve", audit: processAudit("processamento-aprovado") }, async (req, res) => {
     res.json({ processo: await workflow.approveProcessing(req.params.id, req.accessContext, actor(req)) });
   });
