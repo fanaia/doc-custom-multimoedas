@@ -98,7 +98,7 @@
       "section": "Configurações",
       "list": { "columns": ["codigo", "simbolo", "fonte", "valorFixo", "valorContingencia", "ultimoValorValido", "ultimaReferenciaEm", "ultimaOrigem", "status"] },
       "relations": { "cotacoes": { "model": "CotacaoMoeda", "foreignKey": "moedaId", "parentKey": "_id", "label": "Histórico de cotações" } },
-      "detailModal": { "enabled": true, "titleField": "codigo", "size": "xl", "defaultTab": "dados", "tabs": [{ "id": "dados", "label": "Moeda", "type": "form", "groups": [{ "label": "Conversão", "fields": ["codigo", "simbolo", "fonte", "valorFixo", "valorContingencia", "status"], "columns": 2 }, { "label": "Última cotação", "fields": ["ultimoValorValido", "ultimaReferenciaEm", "ultimaConsultaEm", "ultimaOrigem"], "columns": 2 }] }, { "id": "cotacoes", "label": "Histórico", "type": "readonlyGrid", "relation": "cotacoes", "columns": ["valor", "referenciaEm", "consultadaEm", "origem", "alerta", "processoId"] }] }
+      "detailModal": { "enabled": true, "titleField": "codigo", "size": "xl", "defaultTab": "dados", "tabs": [{ "id": "dados", "label": "Moeda", "type": "form", "groups": [{ "label": "Conversão", "fields": ["codigo", "simbolo", "fonte", "valorFixo", "valorContingencia", "status"], "columns": 2 }, { "label": "Última cotação", "fields": [{"field": "ultimoValorValido", "readonly": true}, {"field": "ultimaReferenciaEm", "readonly": true}, {"field": "ultimaConsultaEm", "readonly": true}, {"field": "ultimaOrigem", "readonly": true}], "columns": 2 }] }, { "id": "cotacoes", "label": "Histórico", "type": "readonlyGrid", "relation": "cotacoes", "columns": ["valor", "referenciaEm", "consultadaEm", "origem", "alerta", "processoId"] }] }
     },
     {
       "model": "Template",
