@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useOonApi } from "@oondemand/oon-core-front";
 
 type Item = Record<string, any> & { _id: string };
-const btn: React.CSSProperties = {border:0,borderRadius:8,padding:"8px 11px",background:"#0077b6",color:"#fff",cursor:"pointer",fontWeight:650};
-const outline: React.CSSProperties = {...btn,background:"#fff",color:"#344054",border:"1px solid #d0d5dd"};
+const btn: CSSProperties = {border:0,borderRadius:8,padding:"8px 11px",background:"#0077b6",color:"#fff",cursor:"pointer",fontWeight:650};
+const outline: CSSProperties = {...btn,background:"#fff",color:"#344054",border:"1px solid #d0d5dd"};
 const columns = [
   {label:"Aguardando aprovação",stages:["Aprovar processamento"]},
   {label:"Em processamento",stages:["Gerar fatura","Anexar no Omie","Atualizar status Omie"]},
