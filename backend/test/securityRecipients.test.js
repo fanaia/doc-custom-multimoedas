@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { normalizeRecipients } = require("../src/services/recipients");
+const { normalizeRecipients, withInternalCopies } = require("../src/services/recipients");
 const { decrypt, encrypt, hash, mask, safeEqual } = require("../src/services/security");
 
 test("credenciais usam AES-GCM e não ficam legíveis", () => {
@@ -38,4 +38,15 @@ test("destinatários são validados e deduplicados entre To, CC e BCC", () => {
   assert.deepEqual(result.cc, ["cc@example.com"]);
   assert.deepEqual(result.bcc, ["bcc@example.com"]);
   assert.deepEqual(result.invalid, ["inválido"]);
+});
+
+test("cópias internas são obrigatoriamente mescladas sem duplicar destinatários", () => {
+  const result = withInternalCopies(
+    normalizeRecipients({ to: "cliente@empresa.com", cc: "financeiro@empresa.com" }),
+    ["interno@empresa.com", "CLIENTE@empresa.com", "financeiro@empresa.com"],
+  );
+  assert.deepEqual(result.to, ["cliente@empresa.com"]);
+  assert.deepEqual(result.cc, ["financeiro@empresa.com", "interno@empresa.com"]);
+  assert.deepEqual(result.bcc, []);
+  assert.deepEqual(result.invalid, []);
 });
