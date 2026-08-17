@@ -115,8 +115,7 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.get("/integracoes/tickets", { permission: "audit.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     const filter = { tenantId };
-    if (["omie", "sendgrid"].includes(req.query.provider)) filter.provider = req.query.provider;
-    if (["processando", "sucesso", "falha"].includes(req.query.status)) filter.status = req.query.status;
+    const safeRegex = (value) => String(value || "").slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (req.query.baseOmieId) filter.baseOmieId = (await findScopedBase(req.query.baseOmieId, req.accessContext))._id;
     const tickets = await Model("IntegracaoTicket").find(filter).populate("baseOmieId", "nome codigo").sort({ iniciadoEm: -1 }).limit(250).lean();
     res.json({ tickets });
