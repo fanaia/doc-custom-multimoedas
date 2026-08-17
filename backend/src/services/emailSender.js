@@ -30,6 +30,12 @@ async function sendEmail(message, options = {}) {
     statusCode: 422,
     code: "EMAIL_SENDER_INVALID",
   });
+  const attachments = (message.attachments || []).map((item) => ({
+    content: item.contentBase64,
+    filename: item.filename,
+    type: item.contentType || "application/octet-stream",
+    disposition: "attachment",
+  }));
   const payload = {
     personalizations: [{
       to: message.to.map((email) => ({ email })),
@@ -39,15 +45,10 @@ async function sendEmail(message, options = {}) {
     from: { email: message.from.email, ...(message.from.name ? { name: message.from.name } : {}) },
     subject: message.subject,
     content: [{ type: "text/html", value: message.html }],
-    attachments: (message.attachments || []).map((item) => ({
-      content: item.contentBase64,
-      filename: item.filename,
-      type: item.contentType || "application/octet-stream",
-      disposition: "attachment",
-    })),
+    ...(attachments.length ? { attachments } : {}),
   };
   const fetchImpl = options.fetchImpl || globalThis.fetch;
-  const ticket = options.tenantId ? await tickets.start({ tenantId: options.tenantId, provider: "sendgrid", operacao: "mail.send", processoId: options.processoId, requisicao: { to: message.to, cc: message.cc, bcc: message.bcc, subject: message.subject, attachments: payload.attachments.map(item => ({ filename: item.filename, type: item.type })) } }) : null;
+  const ticket = options.tenantId ? await tickets.start({ tenantId: options.tenantId, provider: "sendgrid", operacao: "mail.send", processoId: options.processoId, requisicao: { to: message.to, cc: message.cc, bcc: message.bcc, subject: message.subject, attachments: (payload.attachments || []).map(item => ({ filename: item.filename, type: item.type })) } }) : null;
   try {
     const response = await fetchImpl("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
@@ -55,7 +56,20 @@ async function sendEmail(message, options = {}) {
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(20_000),
     });
-    if (!response.ok) throw new GenericError(`Provedor de e-mail recusou o envio (HTTP ${response.status}).`, { statusCode: 502, code: "EMAIL_PROVIDER_ERROR" });
+    if (!response.ok) {
+      let providerMessage = "";
+      try {
+        const body = await response.json();
+        providerMessage = (body?.errors || []).map((item) => String(item?.message || "")).filter(Boolean).join(" ");
+      } catch {
+        providerMessage = "";
+      }
+      const details = providerMessage ? `: ${providerMessage.slice(0, 500)}` : "";
+      throw new GenericError(`Provedor de e-mail recusou o envio (HTTP ${response.status})${details}.`, {
+        statusCode: 502,
+        code: "EMAIL_PROVIDER_ERROR",
+      });
+    }
     const id = response.headers.get("x-message-id") || response.headers.get("x-request-id") || "accepted";
     await tickets.success(ticket, { resposta: { httpStatus: response.status }, codigoExterno: id });
     return { provider: "sendgrid", id, acceptedAt: new Date() };
