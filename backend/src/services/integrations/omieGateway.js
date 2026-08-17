@@ -16,6 +16,27 @@ function retryDelayMs(error) {
   return /REDUNDANT|consumo redundante/i.test(message) ? 60_000 : 0;
 }
 
+function omieDueDateD1(reference = new Date()) {
+  const date = reference instanceof Date ? reference : new Date(reference);
+  if (Number.isNaN(date.getTime())) throw new GenericError("Data de referência inválida para gerar o adiantamento.", {
+    statusCode: 422,
+    code: "OMIE_ADVANCE_REFERENCE_DATE_INVALID",
+  });
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    }).formatToParts(date)
+      .filter((part) => ["year", "month", "day"].includes(part.type))
+      .map((part) => [part.type, Number(part.value)]),
+  );
+  const tomorrow = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + 1));
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(tomorrow.getUTCDate())}/${pad(tomorrow.getUTCMonth() + 1)}/${tomorrow.getUTCFullYear()}`;
+}
+
 function externalError(call, response, data) {
   const message = data?.faultstring || data?.message || `HTTP ${response.status}`;
   const error = new GenericError(`Omie ${call}: ${String(message).slice(0, 500)}`, {
@@ -200,7 +221,7 @@ function buildStageUpdate(current, etapa, observacao, adiantamento) {
   if (adiantamento?.enabled) {
     const parcelas = Array.isArray(current?.Parcelas) ? current.Parcelas : [];
     if (!parcelas.length) throw new GenericError("OS sem parcelas para gerar adiantamento.", { statusCode: 422, code: "OMIE_ADVANCE_INSTALLMENTS_REQUIRED" });
-    update.Cabecalho.dDtPrevisao = current.Cabecalho.dDtPrevisao;
+    update.Cabecalho.dDtPrevisao = omieDueDateD1(adiantamento.referenceDate);
     update.Cabecalho.cCodParc = "999";
     update.Parcelas = parcelas.map((parcela) => ({
       ...parcela,
@@ -234,6 +255,7 @@ module.exports = {
   listarContasCorrentes,
   listarEtapas,
   obterAnexo,
+  omieDueDateD1,
   parseServiceStages,
   retryDelayMs,
   testConnection,
