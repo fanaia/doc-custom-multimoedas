@@ -3,9 +3,20 @@
   "name": "Doc Custom Multimoedas",
   "slug": "doc-custom-multimoedas",
   "appKind": "member-central",
-  "backend": { "metadataUrl": "/core/metadata" },
-  "layout": { "shell": "default", "sidebar": "core", "topbar": "core", "assistant": "none", "main": "core" },
-  "navigation": { "mode": "mixed", "items": [] },
+  "backend": {
+    "metadataUrl": "/core/metadata"
+  },
+  "layout": {
+    "shell": "default",
+    "sidebar": "core",
+    "topbar": "core",
+    "assistant": "none",
+    "main": "core"
+  },
+  "navigation": {
+    "mode": "mixed",
+    "items": []
+  },
   "pages": [
     {
       "id": "inicio",
@@ -14,7 +25,9 @@
       "title": "Faturas personalizadas",
       "section": "Operação",
       "order": 1,
-      "permissions": ["dashboard.read"],
+      "permissions": [
+        "dashboard.read"
+      ],
       "blocks": [
         {
           "type": "markdown",
@@ -24,9 +37,24 @@
           "type": "navigation.cards",
           "columns": 3,
           "cards": [
-            { "title": "Esteira de faturas", "description": "Aprove, envie e retome processos com rastreabilidade.", "href": "/esteira-faturas", "actionLabel": "Abrir esteira" },
-            { "title": "Bases Omie", "description": "Gerencie empresas, conexão, webhook e etapas.", "href": "/bases-omie", "actionLabel": "Configurar bases" },
-            { "title": "Gatilhos e templates", "description": "Mantenha mapeamentos, versões EJS, imagens e destinatários.", "href": "/gatilhos", "actionLabel": "Configurar documentos" }
+            {
+              "title": "Esteira de faturas",
+              "description": "Aprove, envie e retome processos com rastreabilidade.",
+              "href": "/esteira-faturas",
+              "actionLabel": "Abrir esteira"
+            },
+            {
+              "title": "Bases Omie",
+              "description": "Gerencie empresas, conexão, webhook e etapas.",
+              "href": "/bases-omie",
+              "actionLabel": "Configurar bases"
+            },
+            {
+              "title": "Gatilhos e templates",
+              "description": "Mantenha mapeamentos, versões EJS, imagens e destinatários.",
+              "href": "/gatilhos",
+              "actionLabel": "Configurar documentos"
+            }
           ]
         }
       ]
@@ -40,9 +68,34 @@
       "section": "Operação",
       "order": 2,
       "widgets": [
-        { "id": "processos-etapa", "label": "Processos por etapa", "description": "Distribuição atual da esteira", "model": "ProcessoFatura", "kind": "groupCount", "groupBy": "etapa" },
-        { "id": "falhas", "label": "Falhas", "description": "Processos aguardando retentativa", "model": "ProcessoFatura", "kind": "count", "filters": { "status": "falha" } },
-        { "id": "concluidos", "label": "Concluídos", "description": "Processos concluídos com sucesso", "model": "ProcessoFatura", "kind": "count", "filters": { "status": "concluido" } }
+        {
+          "id": "processos-etapa",
+          "label": "Processos por etapa",
+          "description": "Distribuição atual da esteira",
+          "model": "ProcessoFatura",
+          "kind": "groupCount",
+          "groupBy": "etapa"
+        },
+        {
+          "id": "falhas",
+          "label": "Falhas",
+          "description": "Processos aguardando retentativa",
+          "model": "ProcessoFatura",
+          "kind": "count",
+          "filters": {
+            "status": "falha"
+          }
+        },
+        {
+          "id": "concluidos",
+          "label": "Concluídos",
+          "description": "Processos concluídos com sucesso",
+          "model": "ProcessoFatura",
+          "kind": "count",
+          "filters": {
+            "status": "concluido"
+          }
+        }
       ]
     }
   ],
@@ -55,20 +108,105 @@
       "section": "Configurações",
       "list": {
         "filters": [
-          { "field": "codigo", "label": "Código", "type": "text" },
-          { "field": "cnpj", "label": "CNPJ", "type": "text" },
-          { "field": "status", "label": "Status", "type": "select", "options": [{ "label": "Todos", "value": "" }, { "label": "Ativo", "value": "ativo" }, { "label": "Inativo", "value": "inativo" }] }
+          {
+            "field": "codigo",
+            "label": "Código",
+            "type": "text"
+          },
+          {
+            "field": "cnpj",
+            "label": "CNPJ",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "select",
+            "options": [
+              {
+                "label": "Todos",
+                "value": ""
+              },
+              {
+                "label": "Ativo",
+                "value": "ativo"
+              },
+              {
+                "label": "Inativo",
+                "value": "inativo"
+              }
+            ]
+          }
         ],
-        "columns": ["codigo", "nome", "cnpj", "ambiente", "status", "statusConexao", "appKeyMasked", "ultimaConexaoEm"],
+        "columns": [
+          "codigo",
+          "nome",
+          "cnpj",
+          "ambiente",
+          "status",
+          "statusConexao",
+          "appKeyMasked",
+          "ultimaConexaoEm"
+        ],
         "rowActions": [
-          { "id": "testar-conexao", "label": "Testar conexão", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/bases/:id/testar", "permissions": ["bases.manage"], "refresh": ["self"] },
-          { "id": "sincronizar-etapas", "label": "Sincronizar etapas", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/bases/:id/etapas/sincronizar", "permissions": ["bases.manage"], "refresh": ["self"] },
-          { "id": "rotacionar-webhook", "label": "Rotacionar webhook", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/bases/:id/webhook/rotacionar", "permissions": ["bases.manage"], "confirm": { "title": "Rotacionar token do webhook?", "description": "O endpoint anterior deixará de aceitar novos eventos." }, "refresh": ["self"] }
+          {
+            "id": "testar-conexao",
+            "label": "Testar conexão",
+            "type": "apiAction",
+            "method": "POST",
+            "endpoint": "/api/doc-custom/bases/:id/testar",
+            "permissions": [
+              "bases.manage"
+            ],
+            "refresh": [
+              "self"
+            ]
+          },
+          {
+            "id": "sincronizar-etapas",
+            "label": "Sincronizar etapas",
+            "type": "apiAction",
+            "method": "POST",
+            "endpoint": "/api/doc-custom/bases/:id/etapas/sincronizar",
+            "permissions": [
+              "bases.manage"
+            ],
+            "refresh": [
+              "self"
+            ]
+          },
+          {
+            "id": "rotacionar-webhook",
+            "label": "Rotacionar webhook",
+            "type": "apiAction",
+            "method": "POST",
+            "endpoint": "/api/doc-custom/bases/:id/webhook/rotacionar",
+            "permissions": [
+              "bases.manage"
+            ],
+            "confirm": {
+              "title": "Rotacionar token do webhook?",
+              "description": "O endpoint anterior deixará de aceitar novos eventos."
+            },
+            "refresh": [
+              "self"
+            ]
+          }
         ]
       },
       "relations": {
-        "etapas": { "model": "EtapaOmie", "foreignKey": "baseOmieId", "parentKey": "_id", "label": "Etapas Omie" },
-        "mapeamentos": { "model": "GatilhoBase", "foreignKey": "baseOmieId", "parentKey": "_id", "label": "Mapeamentos" }
+        "etapas": {
+          "model": "EtapaOmie",
+          "foreignKey": "baseOmieId",
+          "parentKey": "_id",
+          "label": "Etapas Omie"
+        },
+        "mapeamentos": {
+          "model": "GatilhoBase",
+          "foreignKey": "baseOmieId",
+          "parentKey": "_id",
+          "label": "Mapeamentos"
+        }
       },
       "detailModal": {
         "enabled": true,
@@ -76,9 +214,62 @@
         "size": "xl",
         "defaultTab": "dados",
         "tabs": [
-          { "id": "dados", "label": "Base", "type": "form", "groups": [{ "label": "Identificação", "fields": ["codigo", "nome", "cnpj", "ambiente", "status"], "columns": 2 }, { "label": "Conexão", "fields": ["credenciaisConfiguradas", "webhookConfigurado", "statusConexao", "ultimaConexaoEm", "ultimoErroConexao"], "columns": 2 }] },
-          { "id": "etapas", "label": "Etapas Omie", "type": "readonlyGrid", "relation": "etapas", "columns": ["codigo", "descricao", "status", "sincronizadaEm"] },
-          { "id": "mapeamentos", "label": "Gatilhos", "type": "relatedGrid", "relation": "mapeamentos", "editable": true, "editMode": "inline", "columns": ["gatilhoId", "etapaEnvio", "etapaErro", "etapaSucesso", "status"] }
+          {
+            "id": "dados",
+            "label": "Base",
+            "type": "form",
+            "groups": [
+              {
+                "label": "Identificação",
+                "fields": [
+                  "codigo",
+                  "nome",
+                  "cnpj",
+                  "ambiente",
+                  "status"
+                ],
+                "columns": 2
+              },
+              {
+                "label": "Conexão",
+                "fields": [
+                  "credenciaisConfiguradas",
+                  "webhookConfigurado",
+                  "statusConexao",
+                  "ultimaConexaoEm",
+                  "ultimoErroConexao"
+                ],
+                "columns": 2
+              }
+            ]
+          },
+          {
+            "id": "etapas",
+            "label": "Etapas Omie",
+            "type": "readonlyGrid",
+            "relation": "etapas",
+            "columns": [
+              "codigo",
+              "descricao",
+              "status",
+              "sincronizadaEm"
+            ]
+          },
+          {
+            "id": "mapeamentos",
+            "label": "Gatilhos",
+            "type": "relatedGrid",
+            "relation": "mapeamentos",
+            "editable": true,
+            "editMode": "inline",
+            "columns": [
+              "gatilhoId",
+              "etapaEnvio",
+              "etapaErro",
+              "etapaSucesso",
+              "status"
+            ]
+          }
         ]
       }
     },
@@ -88,7 +279,47 @@
       "path": "/configuracoes",
       "label": "Configurações",
       "section": "Configurações",
-      "list": { "filters": [{ "field": "codigo", "label": "Código", "type": "text" }, { "field": "baseOmieId", "label": "Base", "type": "ref" }, { "field": "status", "label": "Status", "type": "select", "options": [{ "label": "Todos", "value": "" }, { "label": "Ativo", "value": "ativo" }, { "label": "Inativo", "value": "inativo" }] }], "columns": ["codigo", "descricao", "tipo", "valor", "baseOmieId", "status"] }
+      "list": {
+        "filters": [
+          {
+            "field": "codigo",
+            "label": "Código",
+            "type": "text"
+          },
+          {
+            "field": "baseOmieId",
+            "label": "Base",
+            "type": "ref"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "select",
+            "options": [
+              {
+                "label": "Todos",
+                "value": ""
+              },
+              {
+                "label": "Ativo",
+                "value": "ativo"
+              },
+              {
+                "label": "Inativo",
+                "value": "inativo"
+              }
+            ]
+          }
+        ],
+        "columns": [
+          "codigo",
+          "descricao",
+          "tipo",
+          "valor",
+          "baseOmieId",
+          "status"
+        ]
+      }
     },
     {
       "model": "Moeda",
@@ -96,9 +327,78 @@
       "path": "/moedas",
       "label": "Moedas",
       "section": "Configurações",
-      "list": { "columns": ["codigo", "simbolo", "fonte", "valorFixo", "valorContingencia", "ultimoValorValido", "ultimaReferenciaEm", "ultimaOrigem", "status"] },
-      "relations": { "cotacoes": { "model": "CotacaoMoeda", "foreignKey": "moedaId", "parentKey": "_id", "label": "Histórico de cotações" } },
-      "detailModal": { "enabled": true, "titleField": "codigo", "size": "xl", "defaultTab": "dados", "tabs": [{ "id": "dados", "label": "Moeda", "type": "form", "groups": [{ "label": "Conversão", "fields": ["codigo", "simbolo", "fonte", "valorFixo", "valorContingencia", "status"], "columns": 2 }, { "label": "Última cotação", "fields": ["ultimoValorValido", "ultimaReferenciaEm", "ultimaConsultaEm", "ultimaOrigem"], "columns": 2 }] }, { "id": "cotacoes", "label": "Histórico", "type": "readonlyGrid", "relation": "cotacoes", "columns": ["valor", "referenciaEm", "consultadaEm", "origem", "alerta", "processoId"] }] }
+      "list": {
+        "columns": [
+          "codigo",
+          "simbolo",
+          "fonte",
+          "valorFixo",
+          "valorContingencia",
+          "ultimoValorValido",
+          "ultimaReferenciaEm",
+          "ultimaOrigem",
+          "status"
+        ]
+      },
+      "relations": {
+        "cotacoes": {
+          "model": "CotacaoMoeda",
+          "foreignKey": "moedaId",
+          "parentKey": "_id",
+          "label": "Histórico de cotações"
+        }
+      },
+      "detailModal": {
+        "enabled": true,
+        "titleField": "codigo",
+        "size": "xl",
+        "defaultTab": "dados",
+        "tabs": [
+          {
+            "id": "dados",
+            "label": "Moeda",
+            "type": "form",
+            "groups": [
+              {
+                "label": "Conversão",
+                "fields": [
+                  "codigo",
+                  "simbolo",
+                  "fonte",
+                  "valorFixo",
+                  "valorContingencia",
+                  "status"
+                ],
+                "columns": 2
+              },
+              {
+                "label": "Última cotação",
+                "fields": [
+                  "ultimoValorValido",
+                  "ultimaReferenciaEm",
+                  "ultimaConsultaEm",
+                  "ultimaOrigem"
+                ],
+                "columns": 2
+              }
+            ]
+          },
+          {
+            "id": "cotacoes",
+            "label": "Histórico",
+            "type": "readonlyGrid",
+            "relation": "cotacoes",
+            "columns": [
+              "valor",
+              "referenciaEm",
+              "consultadaEm",
+              "origem",
+              "alerta",
+              "processoId"
+            ]
+          }
+        ]
+      }
     },
     {
       "model": "Template",
@@ -106,7 +406,46 @@
       "path": "/templates",
       "label": "Templates EJS",
       "section": "Documentos",
-      "list": { "filters": [{ "field": "codigo", "label": "Código", "type": "text" }, { "field": "tipo", "label": "Tipo", "type": "select", "options": [{ "label": "Todos", "value": "" }, { "label": "Documento", "value": "documento" }, { "label": "Assunto", "value": "assunto" }, { "label": "Corpo", "value": "corpo" }] }], "columns": ["codigo", "descricao", "tipo", "versao", "status", "updatedAt"] }
+      "list": {
+        "filters": [
+          {
+            "field": "codigo",
+            "label": "Código",
+            "type": "text"
+          },
+          {
+            "field": "tipo",
+            "label": "Tipo",
+            "type": "select",
+            "options": [
+              {
+                "label": "Todos",
+                "value": ""
+              },
+              {
+                "label": "Documento",
+                "value": "documento"
+              },
+              {
+                "label": "Assunto",
+                "value": "assunto"
+              },
+              {
+                "label": "Corpo",
+                "value": "corpo"
+              }
+            ]
+          }
+        ],
+        "columns": [
+          "codigo",
+          "descricao",
+          "tipo",
+          "versao",
+          "status",
+          "updatedAt"
+        ]
+      }
     },
     {
       "model": "Imagem",
@@ -114,7 +453,16 @@
       "path": "/imagens",
       "label": "Imagens",
       "section": "Documentos",
-      "list": { "columns": ["codigo", "descricao", "contentType", "tamanho", "status", "updatedAt"] }
+      "list": {
+        "columns": [
+          "codigo",
+          "descricao",
+          "contentType",
+          "tamanho",
+          "status",
+          "updatedAt"
+        ]
+      }
     },
     {
       "model": "Gatilho",
@@ -122,15 +470,178 @@
       "path": "/gatilhos",
       "label": "Gatilhos",
       "section": "Documentos",
-      "list": { "filters": [{ "field": "codigo", "label": "Código", "type": "text" }, { "field": "status", "label": "Status", "type": "select", "options": [{ "label": "Todos", "value": "" }, { "label": "Ativo", "value": "ativo" }, { "label": "Inativo", "value": "inativo" }] }], "columns": ["codigo", "descricao", "tipoDocumento", "templateDocumentoId", "templateAssuntoId", "templateCorpoId", "status"] },
-      "relations": { "bases": { "model": "GatilhoBase", "foreignKey": "gatilhoId", "parentKey": "_id", "label": "Bases e etapas" } },
-      "detailModal": { "enabled": true, "titleField": "descricao", "size": "xl", "defaultTab": "dados", "tabs": [{ "id": "dados", "label": "Gatilho", "type": "form", "groups": [{ "label": "Documento", "fields": ["codigo", "descricao", "tipoDocumento", "templateDocumentoId", "templateAssuntoId", "templateCorpoId", "status"], "columns": 2 }] }, { "id": "bases", "label": "Bases e etapas", "type": "relatedGrid", "relation": "bases", "editable": true, "editMode": "inline", "columns": ["baseOmieId", "etapaEnvio", "etapaErro", "etapaSucesso", "status"] }] }
+      "list": {
+        "filters": [
+          {
+            "field": "codigo",
+            "label": "Código",
+            "type": "text"
+          },
+          {
+            "field": "status",
+            "label": "Status",
+            "type": "select",
+            "options": [
+              {
+                "label": "Todos",
+                "value": ""
+              },
+              {
+                "label": "Ativo",
+                "value": "ativo"
+              },
+              {
+                "label": "Inativo",
+                "value": "inativo"
+              }
+            ]
+          }
+        ],
+        "columns": [
+          "codigo",
+          "descricao",
+          "tipoDocumento",
+          "templateDocumentoId",
+          "templateAssuntoId",
+          "templateCorpoId",
+          "status"
+        ]
+      },
+      "relations": {
+        "bases": {
+          "model": "GatilhoBase",
+          "foreignKey": "gatilhoId",
+          "parentKey": "_id",
+          "label": "Bases e etapas"
+        }
+      },
+      "detailModal": {
+        "enabled": true,
+        "titleField": "descricao",
+        "size": "xl",
+        "defaultTab": "dados",
+        "tabs": [
+          {
+            "id": "dados",
+            "label": "Gatilho",
+            "type": "form",
+            "groups": [
+              {
+                "label": "Documento",
+                "fields": [
+                  "codigo",
+                  "descricao",
+                  "tipoDocumento",
+                  "templateDocumentoId",
+                  "templateAssuntoId",
+                  "templateCorpoId",
+                  "status"
+                ],
+                "columns": 2
+              }
+            ]
+          },
+          {
+            "id": "bases",
+            "label": "Bases e etapas",
+            "type": "relatedGrid",
+            "relation": "bases",
+            "editable": true,
+            "editMode": "inline",
+            "columns": [
+              "baseOmieId",
+              "etapaEnvio",
+              "etapaErro",
+              "etapaSucesso",
+              "status"
+            ]
+          }
+        ]
+      }
     },
-    { "model": "GatilhoBase", "mode": "dynamic", "path": "/mapeamentos-gatilhos", "label": "Mapeamentos de gatilhos", "section": "Documentos", "hidden": true },
-    { "model": "EtapaOmie", "mode": "dynamic", "path": "/etapas-omie", "label": "Etapas Omie", "section": "Configurações", "hidden": true },
-    { "model": "CategoriaOmie", "mode": "dynamic", "path": "/categorias-omie", "label": "Categorias Omie", "section": "Configurações", "hidden": true, "list": { "builtInActions": { "create": false, "edit": false, "delete": false }, "filters": [{ "field": "baseOmieId", "label": "Base Omie", "type": "ref" }], "columns": ["baseOmieId", "codigo", "descricao", "status", "sincronizadaEm"] } },
-    { "model": "ContaCorrenteOmie", "mode": "dynamic", "path": "/contas-correntes-omie", "label": "Contas correntes Omie", "section": "Configurações", "hidden": true, "list": { "builtInActions": { "create": false, "edit": false, "delete": false }, "filters": [{ "field": "baseOmieId", "label": "Base Omie", "type": "ref" }], "columns": ["baseOmieId", "codigo", "descricao", "banco", "status", "sincronizadaEm"] } },
-    { "model": "CotacaoMoeda", "mode": "dynamic", "path": "/cotacoes", "label": "Cotações", "section": "Auditoria", "hidden": true },
+    {
+      "model": "GatilhoBase",
+      "mode": "dynamic",
+      "path": "/mapeamentos-gatilhos",
+      "label": "Mapeamentos de gatilhos",
+      "section": "Documentos",
+      "hidden": true
+    },
+    {
+      "model": "EtapaOmie",
+      "mode": "dynamic",
+      "path": "/etapas-omie",
+      "label": "Etapas Omie",
+      "section": "Configurações",
+      "hidden": true
+    },
+    {
+      "model": "CategoriaOmie",
+      "mode": "dynamic",
+      "path": "/categorias-omie",
+      "label": "Categorias Omie",
+      "section": "Configurações",
+      "hidden": true,
+      "list": {
+        "builtInActions": {
+          "create": false,
+          "edit": false,
+          "delete": false
+        },
+        "filters": [
+          {
+            "field": "baseOmieId",
+            "label": "Base Omie",
+            "type": "ref"
+          }
+        ],
+        "columns": [
+          "baseOmieId",
+          "codigo",
+          "descricao",
+          "status",
+          "sincronizadaEm"
+        ]
+      }
+    },
+    {
+      "model": "ContaCorrenteOmie",
+      "mode": "dynamic",
+      "path": "/contas-correntes-omie",
+      "label": "Contas correntes Omie",
+      "section": "Configurações",
+      "hidden": true,
+      "list": {
+        "builtInActions": {
+          "create": false,
+          "edit": false,
+          "delete": false
+        },
+        "filters": [
+          {
+            "field": "baseOmieId",
+            "label": "Base Omie",
+            "type": "ref"
+          }
+        ],
+        "columns": [
+          "baseOmieId",
+          "codigo",
+          "descricao",
+          "banco",
+          "status",
+          "sincronizadaEm"
+        ]
+      }
+    },
+    {
+      "model": "CotacaoMoeda",
+      "mode": "dynamic",
+      "path": "/cotacoes",
+      "label": "Cotações",
+      "section": "Auditoria",
+      "hidden": true
+    },
     {
       "model": "ProcessoFatura",
       "mode": "dynamic",
@@ -139,13 +650,153 @@
       "section": "Operação",
       "hidden": true,
       "list": {
-        "builtInActions": { "create": false, "edit": false, "delete": false },
-        "filters": [{ "field": "baseOmieId", "label": "Base", "type": "ref" }, { "field": "codigoOs", "label": "OS", "type": "text" }, { "field": "clienteNome", "label": "Cliente", "type": "text" }, { "field": "etapa", "label": "Etapa", "type": "select", "options": [{ "label": "Todas", "value": "" }, { "label": "Aprovar processamento", "value": "Aprovar processamento" }, { "label": "Aprovar fatura", "value": "Aprovar fatura" }, { "label": "Enviar e-mail", "value": "Enviar e-mail" }, { "label": "Falha", "value": "Falha" }, { "label": "Concluído", "value": "Concluido" }, { "label": "Rejeitado", "value": "Rejeitado" }] }, { "field": "iniciadoEm", "label": "Período", "type": "dateRange" }],
-        "columns": ["numeroOs", "clienteNome", "baseOmieId", "etapa", "status", "falhaNaEtapa", "tentativas", "iniciadoEm", "concluidoEm"]
+        "builtInActions": {
+          "create": false,
+          "edit": false,
+          "delete": false
+        },
+        "filters": [
+          {
+            "field": "baseOmieId",
+            "label": "Base",
+            "type": "ref"
+          },
+          {
+            "field": "codigoOs",
+            "label": "OS",
+            "type": "text"
+          },
+          {
+            "field": "clienteNome",
+            "label": "Cliente",
+            "type": "text"
+          },
+          {
+            "field": "etapa",
+            "label": "Etapa",
+            "type": "select",
+            "options": [
+              {
+                "label": "Todas",
+                "value": ""
+              },
+              {
+                "label": "Aprovar processamento",
+                "value": "Aprovar processamento"
+              },
+              {
+                "label": "Aprovar fatura",
+                "value": "Aprovar fatura"
+              },
+              {
+                "label": "Enviar e-mail",
+                "value": "Enviar e-mail"
+              },
+              {
+                "label": "Falha",
+                "value": "Falha"
+              },
+              {
+                "label": "Concluído",
+                "value": "Concluido"
+              },
+              {
+                "label": "Rejeitado",
+                "value": "Rejeitado"
+              }
+            ]
+          },
+          {
+            "field": "iniciadoEm",
+            "label": "Período",
+            "type": "dateRange"
+          }
+        ],
+        "columns": [
+          "numeroOs",
+          "clienteNome",
+          "valorFatura",
+          "quantidadeServicos",
+          "etapa",
+          "status",
+          "baseOmieId",
+          "iniciadoEm"
+        ]
       }
     },
-    { "model": "EventoProcesso", "mode": "dynamic", "path": "/auditoria-processos", "label": "Auditoria de processos", "section": "Auditoria", "list": { "filters": [{ "field": "processoId", "label": "Processo", "type": "ref" }, { "field": "etapa", "label": "Etapa", "type": "text" }, { "field": "resultado", "label": "Resultado", "type": "select", "options": [{ "label": "Todos", "value": "" }, { "label": "Iniciado", "value": "iniciado" }, { "label": "Sucesso", "value": "sucesso" }, { "label": "Falha", "value": "falha" }, { "label": "Rejeitado", "value": "rejeitado" }] }, { "field": "iniciadoEm", "label": "Período", "type": "dateRange" }], "columns": ["processoId", "etapa", "tentativa", "resultado", "iniciadoEm", "finalizadoEm", "duracaoMs", "usuarioId", "codigoErro", "mensagem"] } },
-    { "model": "ArtefatoPdf", "mode": "dynamic", "path": "/artefatos-pdf", "label": "Artefatos PDF", "section": "Auditoria", "hidden": true }
+    {
+      "model": "EventoProcesso",
+      "mode": "dynamic",
+      "path": "/auditoria-processos",
+      "label": "Auditoria de processos",
+      "section": "Auditoria",
+      "list": {
+        "filters": [
+          {
+            "field": "processoId",
+            "label": "Processo",
+            "type": "ref"
+          },
+          {
+            "field": "etapa",
+            "label": "Etapa",
+            "type": "text"
+          },
+          {
+            "field": "resultado",
+            "label": "Resultado",
+            "type": "select",
+            "options": [
+              {
+                "label": "Todos",
+                "value": ""
+              },
+              {
+                "label": "Iniciado",
+                "value": "iniciado"
+              },
+              {
+                "label": "Sucesso",
+                "value": "sucesso"
+              },
+              {
+                "label": "Falha",
+                "value": "falha"
+              },
+              {
+                "label": "Rejeitado",
+                "value": "rejeitado"
+              }
+            ]
+          },
+          {
+            "field": "iniciadoEm",
+            "label": "Período",
+            "type": "dateRange"
+          }
+        ],
+        "columns": [
+          "processoId",
+          "etapa",
+          "tentativa",
+          "resultado",
+          "iniciadoEm",
+          "finalizadoEm",
+          "duracaoMs",
+          "usuarioId",
+          "codigoErro",
+          "mensagem"
+        ]
+      }
+    },
+    {
+      "model": "ArtefatoPdf",
+      "mode": "dynamic",
+      "path": "/artefatos-pdf",
+      "label": "Artefatos PDF",
+      "section": "Auditoria",
+      "hidden": true
+    }
   ],
   "pipelines": [
     {
@@ -158,25 +809,97 @@
       "label": "Esteira de faturas",
       "section": "Operação",
       "stages": [
-        { "id": "Aprovar processamento", "label": "Aprovar processamento" },
-        { "id": "Gerar fatura", "label": "Gerar fatura" },
-        { "id": "Aprovar fatura", "label": "Aprovar fatura" },
-        { "id": "Anexar no Omie", "label": "Anexar no Omie" },
-        { "id": "Enviar e-mail", "label": "Enviar e-mail" },
-        { "id": "Atualizar status Omie", "label": "Atualizar status Omie" },
-        { "id": "Concluido", "label": "Concluído" },
-        { "id": "Falha", "label": "Falha" },
-        { "id": "Rejeitado", "label": "Rejeitado" }
+        {
+          "id": "Aprovar processamento",
+          "label": "Aprovar processamento"
+        },
+        {
+          "id": "Gerar fatura",
+          "label": "Gerar fatura"
+        },
+        {
+          "id": "Aprovar fatura",
+          "label": "Aprovar fatura"
+        },
+        {
+          "id": "Anexar no Omie",
+          "label": "Anexar no Omie"
+        },
+        {
+          "id": "Enviar e-mail",
+          "label": "Enviar e-mail"
+        },
+        {
+          "id": "Atualizar status Omie",
+          "label": "Atualizar status Omie"
+        },
+        {
+          "id": "Concluido",
+          "label": "Concluído"
+        },
+        {
+          "id": "Falha",
+          "label": "Falha"
+        },
+        {
+          "id": "Rejeitado",
+          "label": "Rejeitado"
+        },
+        {
+          "id": "Arquivado",
+          "label": "Arquivado"
+        }
       ],
-      "filters": [{ "field": "baseOmieId", "label": "Base", "type": "ref" }, { "field": "codigoOs", "label": "OS", "type": "text" }, { "field": "clienteNome", "label": "Cliente", "type": "text" }, { "field": "iniciadoEm", "label": "Período", "type": "dateRange" }],
-      "viewModes": ["board", "list"],
+      "filters": [
+        {
+          "field": "baseOmieId",
+          "label": "Base",
+          "type": "ref"
+        },
+        {
+          "field": "codigoOs",
+          "label": "OS",
+          "type": "text"
+        },
+        {
+          "field": "clienteNome",
+          "label": "Cliente",
+          "type": "text"
+        },
+        {
+          "field": "iniciadoEm",
+          "label": "Período",
+          "type": "dateRange"
+        }
+      ],
+      "viewModes": [
+        "board",
+        "list"
+      ],
       "defaultView": "board",
-      "create": { "enabled": false },
+      "create": {
+        "enabled": false
+      },
       "defaultActions": false,
       "relations": {
-        "eventos": { "model": "EventoProcesso", "foreignKey": "processoId", "parentKey": "_id", "label": "Auditoria" },
-        "cotacoes": { "model": "CotacaoMoeda", "foreignKey": "processoId", "parentKey": "_id", "label": "Cotações" },
-        "artefato": { "model": "ArtefatoPdf", "foreignKey": "processoId", "parentKey": "_id", "label": "PDF" }
+        "eventos": {
+          "model": "EventoProcesso",
+          "foreignKey": "processoId",
+          "parentKey": "_id",
+          "label": "Auditoria"
+        },
+        "cotacoes": {
+          "model": "CotacaoMoeda",
+          "foreignKey": "processoId",
+          "parentKey": "_id",
+          "label": "Cotações"
+        },
+        "artefato": {
+          "model": "ArtefatoPdf",
+          "foreignKey": "processoId",
+          "parentKey": "_id",
+          "label": "PDF"
+        }
       },
       "ticketModal": {
         "enabled": true,
@@ -184,25 +907,338 @@
         "size": "full",
         "defaultTab": "decisao",
         "tabs": [
-          { "id": "decisao", "label": "Decisão", "type": "customComponent", "component": "InvoiceDecisionPanel" },
-          { "id": "resumo", "label": "Resumo", "type": "summary", "cards": [{ "label": "Etapa", "source": "field", "field": "etapa", "format": "badge" }, { "label": "Status", "source": "field", "field": "status", "format": "badge" }, { "label": "Tentativas", "source": "field", "field": "tentativas", "format": "number" }, { "label": "Eventos", "source": "relatedCount", "relation": "eventos", "format": "number" }] },
-          { "id": "processo", "label": "Processo", "type": "form", "groups": [{ "label": "Ordem de serviço", "fields": ["numeroOs", "codigoOs", "clienteNome", "baseOmieId", "etapa", "status"], "columns": 2 }, { "label": "Execução", "fields": ["falhaNaEtapa", "alerta", "tentativas", "ultimoErro", "iniciadoEm", "concluidoEm"], "columns": 2 }, { "label": "Aprovações e envio", "fields": ["aprovadoProcessamentoEm", "aprovadoProcessamentoPor", "aprovadoFaturaEm", "aprovadoFaturaPor", "emailEnviadoEm", "statusOmieAtualizadoEm", "destinatarios", "anexosEnviados", "motivoRejeicao"], "columns": 2 }, { "label": "Snapshot histórico", "description": "Dados exatos utilizados na geração e no envio.", "fields": ["cotacoesUsadas", "templateSnapshot", "variaveisSnapshot", "emailSnapshot"], "columns": 1 }] },
-          { "id": "eventos", "label": "Auditoria", "type": "readonlyGrid", "relation": "eventos", "columns": ["etapa", "tentativa", "resultado", "iniciadoEm", "finalizadoEm", "duracaoMs", "usuarioId", "codigoErro", "mensagem"] },
-          { "id": "cotacoes", "label": "Cotações", "type": "readonlyGrid", "relation": "cotacoes", "columns": ["valor", "referenciaEm", "consultadaEm", "origem", "alerta"] },
-          { "id": "artefato", "label": "PDF", "type": "customComponent", "component": "ProcessPdfViewer" }
+          {
+            "id": "decisao",
+            "label": "Decisão",
+            "type": "customComponent",
+            "component": "InvoiceDecisionPanel"
+          },
+          {
+            "id": "resumo",
+            "label": "Resumo",
+            "type": "summary",
+            "cards": [
+              {
+                "label": "Etapa",
+                "source": "field",
+                "field": "etapa",
+                "format": "badge"
+              },
+              {
+                "label": "Status",
+                "source": "field",
+                "field": "status",
+                "format": "badge"
+              },
+              {
+                "label": "Tentativas",
+                "source": "field",
+                "field": "tentativas",
+                "format": "number"
+              },
+              {
+                "label": "Eventos",
+                "source": "relatedCount",
+                "relation": "eventos",
+                "format": "number"
+              }
+            ]
+          },
+          {
+            "id": "processo",
+            "label": "Processo",
+            "type": "form",
+            "groups": [
+              {
+                "label": "Ordem de serviço",
+                "fields": [
+                  "numeroOs",
+                  "codigoOs",
+                  "clienteNome",
+                  "baseOmieId",
+                  "etapa",
+                  "status"
+                ],
+                "columns": 2
+              },
+              {
+                "label": "Execução",
+                "fields": [
+                  "falhaNaEtapa",
+                  "alerta",
+                  "tentativas",
+                  "ultimoErro",
+                  "iniciadoEm",
+                  "concluidoEm"
+                ],
+                "columns": 2
+              },
+              {
+                "label": "Aprovações e envio",
+                "fields": [
+                  "aprovadoProcessamentoEm",
+                  "aprovadoProcessamentoPor",
+                  "aprovadoFaturaEm",
+                  "aprovadoFaturaPor",
+                  "emailEnviadoEm",
+                  "statusOmieAtualizadoEm",
+                  "destinatarios",
+                  "anexosEnviados",
+                  "motivoRejeicao"
+                ],
+                "columns": 2
+              },
+              {
+                "label": "Snapshot histórico",
+                "description": "Dados exatos utilizados na geração e no envio.",
+                "fields": [
+                  "cotacoesUsadas",
+                  "templateSnapshot",
+                  "variaveisSnapshot",
+                  "emailSnapshot"
+                ],
+                "columns": 1
+              }
+            ]
+          },
+          {
+            "id": "eventos",
+            "label": "Auditoria",
+            "type": "readonlyGrid",
+            "relation": "eventos",
+            "columns": [
+              "etapa",
+              "tentativa",
+              "resultado",
+              "iniciadoEm",
+              "finalizadoEm",
+              "duracaoMs",
+              "usuarioId",
+              "codigoErro",
+              "mensagem"
+            ]
+          },
+          {
+            "id": "cotacoes",
+            "label": "Cotações",
+            "type": "readonlyGrid",
+            "relation": "cotacoes",
+            "columns": [
+              "valor",
+              "referenciaEm",
+              "consultadaEm",
+              "origem",
+              "alerta"
+            ]
+          },
+          {
+            "id": "artefato",
+            "label": "PDF",
+            "type": "customComponent",
+            "component": "ProcessPdfViewer"
+          }
         ]
       },
       "ticketActions": [
-        { "id": "aprovar-processamento", "label": "Aprovar processamento", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/aprovar-processamento", "permissions": ["process.approve"], "hiddenWhen": { "field": "etapa", "notEquals": "Aprovar processamento" }, "group": "approval", "tone": "success", "operationalKind": "approval", "refresh": ["all"] },
-        { "id": "rejeitar-processamento", "label": "Rejeitar processamento", "type": "formAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/rejeitar", "permissions": ["process.approve"], "hiddenWhen": { "field": "etapa", "notEquals": "Aprovar processamento" }, "title": "Rejeitar processamento", "submitLabel": "Rejeitar", "fields": [{ "field": "motivo", "label": "Motivo", "type": "textarea", "required": true }], "group": "approval", "tone": "danger", "operationalKind": "approval", "refresh": ["all"] },
-        { "id": "aprovar-fatura", "label": "Aprovar fatura", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/aprovar-fatura", "permissions": ["process.approve"], "hiddenWhen": { "field": "etapa", "notEquals": "Aprovar fatura" }, "group": "approval", "tone": "success", "operationalKind": "approval", "refresh": ["all"] },
-        { "id": "rejeitar-fatura", "label": "Rejeitar fatura", "type": "formAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/rejeitar", "permissions": ["process.approve"], "hiddenWhen": { "field": "etapa", "notEquals": "Aprovar fatura" }, "title": "Rejeitar fatura", "submitLabel": "Rejeitar", "fields": [{ "field": "motivo", "label": "Motivo", "type": "textarea", "required": true }], "group": "approval", "tone": "danger", "operationalKind": "approval", "refresh": ["all"] },
-        { "id": "tentar-novamente", "label": "Tentar novamente", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/tentar-novamente", "permissions": ["process.retry"], "hiddenWhen": { "field": "etapa", "notEquals": "Falha" }, "group": "custom", "tone": "warning", "operationalKind": "business", "refresh": ["all"] },
-        { "id": "reprocessar", "label": "Reprocessar", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/reprocessar", "permissions": ["process.reprocess"], "confirm": { "title": "Criar um novo processo?", "description": "O histórico atual será preservado e um novo processo começará na primeira aprovação." }, "group": "custom", "tone": "neutral", "operationalKind": "business", "refresh": ["all"] }
+        {
+          "id": "aprovar-processamento",
+          "label": "Aprovar processamento",
+          "type": "apiAction",
+          "method": "POST",
+          "endpoint": "/api/doc-custom/processos/:id/aprovar-processamento",
+          "permissions": [
+            "process.approve"
+          ],
+          "hiddenWhen": {
+            "field": "etapa",
+            "notEquals": "Aprovar processamento"
+          },
+          "group": "approval",
+          "tone": "success",
+          "operationalKind": "approval",
+          "refresh": [
+            "all"
+          ]
+        },
+        {
+          "id": "rejeitar-processamento",
+          "label": "Rejeitar processamento",
+          "type": "formAction",
+          "method": "POST",
+          "endpoint": "/api/doc-custom/processos/:id/rejeitar",
+          "permissions": [
+            "process.approve"
+          ],
+          "hiddenWhen": {
+            "field": "etapa",
+            "notEquals": "Aprovar processamento"
+          },
+          "title": "Rejeitar processamento",
+          "submitLabel": "Rejeitar",
+          "fields": [
+            {
+              "field": "motivo",
+              "label": "Motivo",
+              "type": "textarea",
+              "required": true
+            }
+          ],
+          "group": "approval",
+          "tone": "danger",
+          "operationalKind": "approval",
+          "refresh": [
+            "all"
+          ]
+        },
+        {
+          "id": "aprovar-fatura",
+          "label": "Aprovar fatura",
+          "type": "apiAction",
+          "method": "POST",
+          "endpoint": "/api/doc-custom/processos/:id/aprovar-fatura",
+          "permissions": [
+            "process.approve"
+          ],
+          "hiddenWhen": {
+            "field": "etapa",
+            "notEquals": "Aprovar fatura"
+          },
+          "group": "approval",
+          "tone": "success",
+          "operationalKind": "approval",
+          "refresh": [
+            "all"
+          ]
+        },
+        {
+          "id": "rejeitar-fatura",
+          "label": "Rejeitar fatura",
+          "type": "formAction",
+          "method": "POST",
+          "endpoint": "/api/doc-custom/processos/:id/rejeitar",
+          "permissions": [
+            "process.approve"
+          ],
+          "hiddenWhen": {
+            "field": "etapa",
+            "notEquals": "Aprovar fatura"
+          },
+          "title": "Rejeitar fatura",
+          "submitLabel": "Rejeitar",
+          "fields": [
+            {
+              "field": "motivo",
+              "label": "Motivo",
+              "type": "textarea",
+              "required": true
+            }
+          ],
+          "group": "approval",
+          "tone": "danger",
+          "operationalKind": "approval",
+          "refresh": [
+            "all"
+          ]
+        },
+        {
+          "id": "tentar-novamente",
+          "label": "Tentar novamente",
+          "type": "apiAction",
+          "method": "POST",
+          "endpoint": "/api/doc-custom/processos/:id/tentar-novamente",
+          "permissions": [
+            "process.retry"
+          ],
+          "hiddenWhen": {
+            "field": "etapa",
+            "notEquals": "Falha"
+          },
+          "group": "custom",
+          "tone": "warning",
+          "operationalKind": "business",
+          "refresh": [
+            "all"
+          ]
+        },
+        {
+          "id": "enviar-email",
+          "label": "Enviar e-mail",
+          "type": "apiAction",
+          "method": "POST",
+          "endpoint": "/api/doc-custom/processos/:id/enviar",
+          "permissions": [
+            "process.send"
+          ],
+          "hiddenWhen": {
+            "field": "etapa",
+            "notEquals": "Enviar e-mail"
+          },
+          "group": "approval",
+          "tone": "success",
+          "operationalKind": "business",
+          "refresh": [
+            "all"
+          ]
+        },
+        {
+          "id": "arquivar",
+          "label": "Arquivar",
+          "type": "apiAction",
+          "method": "POST",
+          "endpoint": "/api/doc-custom/processos/:id/arquivar",
+          "permissions": [
+            "process.approve"
+          ],
+          "hiddenWhen": {
+            "field": "status",
+            "in": [
+              "concluido",
+              "arquivado"
+            ]
+          },
+          "confirm": {
+            "title": "Arquivar esta fatura?",
+            "description": "O ticket sairá da operação ativa e permanecerá no histórico."
+          },
+          "group": "custom",
+          "tone": "neutral",
+          "operationalKind": "business",
+          "refresh": [
+            "all"
+          ]
+        }
+      ],
+      "cardFields": [
+        "clienteNome",
+        "valorFatura",
+        "quantidadeServicos"
+      ],
+      "columns": [
+        "numeroOs",
+        "clienteNome",
+        "valorFatura",
+        "quantidadeServicos",
+        "etapa",
+        "status",
+        "baseOmieId",
+        "iniciadoEm"
       ]
     }
   ],
   "documents": [
-    { "model": "ArtefatoPdf", "mode": "dynamic", "path": "/documentos-gerados", "label": "Documentos gerados", "section": "Documentos", "approval": false, "attachments": true, "builtInActions": { "create": false, "edit": false, "delete": false } }
+    {
+      "model": "ArtefatoPdf",
+      "mode": "dynamic",
+      "path": "/documentos-gerados",
+      "label": "Documentos gerados",
+      "section": "Documentos",
+      "approval": false,
+      "attachments": true,
+      "builtInActions": {
+        "create": false,
+        "edit": false,
+        "delete": false
+      }
+    }
   ]
 }
