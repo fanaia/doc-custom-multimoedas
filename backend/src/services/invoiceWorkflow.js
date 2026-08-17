@@ -3,7 +3,7 @@
 const { GenericError, registry, scopedIdFilter } = require("@oondemand/oon-core-back");
 const { collectOmieAttachments } = require("./attachments");
 const { findScopedBase } = require("./baseCredentials");
-const { automationSettings, getConfiguration, resolvedConfigurations } = require("./configuration");
+const { automationSettings, automationSettingsFromConfigurations, getConfiguration, resolvedConfigurations } = require("./configuration");
 const { sendEmail } = require("./emailSender");
 const { credentials: sendgridCredentials } = require("./sendgridCredentials");
 const gateway = require("./integrations/omieGateway");
@@ -178,6 +178,37 @@ function invoiceSummary(variables = {}) {
   };
 }
 
+async function prepareInvoiceSnapshot(invoiceProcess, adapters = {}) {
+  const accessContext = internalAccess(invoiceProcess.tenantId);
+  const { base, trigger } = await loadTriggerContext(invoiceProcess, accessContext);
+  const variables = await (adapters.buildVariables || buildVariables)({
+    tenantId: String(invoiceProcess.tenantId),
+    base,
+    codigoOs: invoiceProcess.codigoOs,
+    numeroOs: invoiceProcess.numeroOs,
+    processoId: invoiceProcess._id,
+    accessContext,
+    adapters,
+  });
+  const templates = await loadTemplates(trigger, invoiceProcess.tenantId);
+  const { html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions);
+  const warnings = variables.moedas.map((item) => item.alerta).filter(Boolean);
+  await Model("ProcessoFatura").updateOne({ _id: invoiceProcess._id, tenantId: invoiceProcess.tenantId }, {
+    $set: {
+      htmlSnapshotPendente: html,
+      codigoOs: String(variables.os.Cabecalho.nCodOS),
+      numeroOs: String(variables.os.Cabecalho.cNumOS),
+      ...invoiceSummary(variables),
+      cotacoesUsadas: variables.moedas,
+      templateSnapshot: templateSnapshot(templates),
+      variaveisSnapshot: variablesSnapshot(variables),
+      emailSnapshot: { subject, body },
+      alerta: warnings.join(" "),
+    },
+  });
+  return { variables, templates, html, subject, body };
+}
+
 async function generateInvoice(invoiceProcess, actor, adapters = {}) {
   const startedAt = new Date();
   const accessContext = internalAccess(invoiceProcess.tenantId);
@@ -201,30 +232,7 @@ async function generateInvoice(invoiceProcess, actor, adapters = {}) {
     subject = invoiceProcess.emailSnapshot?.subject || "";
     body = invoiceProcess.emailSnapshot?.body || "";
   } else {
-    const { base, trigger } = await loadTriggerContext(invoiceProcess, accessContext);
-    variables = await (adapters.buildVariables || buildVariables)({
-      tenantId: String(invoiceProcess.tenantId),
-      base,
-      codigoOs: invoiceProcess.codigoOs,
-      numeroOs: invoiceProcess.numeroOs,
-      processoId: invoiceProcess._id,
-      accessContext,
-      adapters,
-    });
-    templates = await loadTemplates(trigger, invoiceProcess.tenantId);
-    ({ html, subject, body } = renderConfiguredTemplates(templates, variables, adapters.templateOptions));
-    await Model("ProcessoFatura").updateOne({ _id: invoiceProcess._id, tenantId: invoiceProcess.tenantId }, {
-      $set: {
-        htmlSnapshotPendente: html,
-        codigoOs: String(variables.os.Cabecalho.nCodOS),
-        numeroOs: String(variables.os.Cabecalho.cNumOS),
-        ...invoiceSummary(variables),
-        cotacoesUsadas: variables.moedas,
-        templateSnapshot: templateSnapshot(templates),
-        variaveisSnapshot: variablesSnapshot(variables),
-        emailSnapshot: { subject, body },
-      },
-    });
+    ({ variables, templates, html, subject, body } = await prepareInvoiceSnapshot(invoiceProcess, adapters));
   }
   const pdf = await (adapters.renderPdf || renderPdf)(html, {
     ...adapters,
@@ -353,9 +361,10 @@ async function sendInvoice(process, actor, adapters = {}) {
       .select("+conteudoBase64");
     if (!artifact) throw new GenericError("PDF aprovado nao encontrado.", { statusCode: 422 });
     const variables = current.variaveisSnapshot || {};
-    const configurations = variables.configuracoes || [];
-    const currentConfigurations = await resolvedConfigurations(current.tenantId, current.baseOmieId);
-    const internalRecipients = getConfiguration(currentConfigurations, "email-destinatarios-internos", []);
+    const configurations = Array.isArray(variables.configuracoes)
+      ? variables.configuracoes
+      : await resolvedConfigurations(current.tenantId, current.baseOmieId);
+    const internalRecipients = getConfiguration(configurations, "email-destinatarios-internos", []);
     const configuredRecipients = current.destinatariosEnvio || {};
     const recipients = withInternalCopies(normalizeRecipients(configuredRecipients.configured ? {
       to: configuredRecipients.to,
@@ -509,7 +518,9 @@ async function runConfiguredAutomations(id, accessContext, adapters = {}) {
   const maxAutomaticRetries = Math.max(1, Number(process.env.AUTOMATIC_RETRY_MAX_ATTEMPTS || 3));
   for (let transitions = 0; transitions < 12; transitions += 1) {
     const invoiceProcess = await loadProcess(id, accessContext);
-    const settings = await automationSettings(invoiceProcess.tenantId, invoiceProcess.baseOmieId);
+    const settings = Array.isArray(invoiceProcess.variaveisSnapshot?.configuracoes)
+      ? automationSettingsFromConfigurations(invoiceProcess.variaveisSnapshot.configuracoes)
+      : await automationSettings(invoiceProcess.tenantId, invoiceProcess.baseOmieId);
     const actor = { userId: "automacao-configurada" };
     try {
       if (invoiceProcess.etapa === "Aprovar processamento" && settings["automacao-aprovacao-automatica"]) {
@@ -761,6 +772,7 @@ module.exports = {
   internalAccess,
   isMappedProcessingStage,
   loadProcess,
+  prepareInvoiceSnapshot,
   previewTrigger,
   previewTemplate,
   renderConfiguredTemplate,
