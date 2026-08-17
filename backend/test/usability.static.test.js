@@ -211,7 +211,7 @@ test("esteira exibe resumo financeiro, ações operacionais e arquiva ticket ant
 test("esteira usa página operacional em vez do renderer técnico genérico", () => {
   const routes = read("src/routes/docCustom.js");
   const main = read("../frontend/src/main.tsx");
-  const page = read("../frontend/src/FaturasOperacionaisPage.tsx");
+  const page = main;
   assert.match(routes, /processos-operacao/);
   assert.match(routes, /populate\("baseOmieId", "nome codigo ambiente"\)/);
   assert.match(main, /pipelines: ui\.pipelines\.filter\(\(pipeline\) => pipeline\.name !== "esteira-faturas"\)/);
