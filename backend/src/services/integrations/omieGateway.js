@@ -37,6 +37,22 @@ function omieDueDateD1(reference = new Date()) {
   return `${pad(tomorrow.getUTCDate())}/${pad(tomorrow.getUTCMonth() + 1)}/${tomorrow.getUTCFullYear()}`;
 }
 
+function omieDateValue(value) {
+  const match = String(value || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match.map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return null;
+  return parsed.getTime();
+}
+
+function advanceDueDate(current, reference = new Date()) {
+  const minimum = omieDueDateD1(reference);
+  const currentValue = String(current || "").trim();
+  const currentTime = omieDateValue(currentValue);
+  return currentTime !== null && currentTime >= omieDateValue(minimum) ? currentValue : minimum;
+}
+
 function externalError(call, response, data) {
   const message = data?.faultstring || data?.message || `HTTP ${response.status}`;
   const error = new GenericError(`Omie ${call}: ${String(message).slice(0, 500)}`, {
@@ -221,7 +237,7 @@ function buildStageUpdate(current, etapa, observacao, adiantamento) {
   if (adiantamento?.enabled) {
     const parcelas = Array.isArray(current?.Parcelas) ? current.Parcelas : [];
     if (!parcelas.length) throw new GenericError("OS sem parcelas para gerar adiantamento.", { statusCode: 422, code: "OMIE_ADVANCE_INSTALLMENTS_REQUIRED" });
-    update.Cabecalho.dDtPrevisao = omieDueDateD1(adiantamento.referenceDate);
+    update.Cabecalho.dDtPrevisao = advanceDueDate(current.Cabecalho.dDtPrevisao, adiantamento.referenceDate);
     update.Cabecalho.cCodParc = "999";
     update.Parcelas = parcelas.map((parcela) => ({
       ...parcela,
@@ -241,6 +257,7 @@ async function atualizarEtapa(base, accessContext, os, etapa, observacao, option
 module.exports = {
   attachmentExternalCode,
   attachmentPayload,
+  advanceDueDate,
   atualizarEtapa,
   buildStageUpdate,
   call,
