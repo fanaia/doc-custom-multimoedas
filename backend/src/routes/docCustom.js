@@ -322,23 +322,17 @@ defineRoutes("/api/doc-custom", (router) => {
     const artifact = invoiceProcess.artefatoPdfId
       ? await Model("ArtefatoPdf").findOne({ _id: invoiceProcess.artefatoPdfId, tenantId: req.accessContext.tenantId }).lean()
       : null;
-    const base = await findScopedBase(invoiceProcess.baseOmieId, req.accessContext, { secrets: true });
-    let listed = {};
-    let attachmentsWarning = "";
-    try {
-      listed = await gateway.listarAnexos(base, req.accessContext, invoiceProcess.codigoOs);
-    } catch (error) {
-      attachmentsWarning = errorSummary(error).message;
-    }
+    const base = await findScopedBase(invoiceProcess.baseOmieId, req.accessContext);
     const invoice = artifact ? { filename: artifact.nomeArquivo, hash: artifact.hash, size: artifact.tamanho, source: "invoice" } : null;
-    const attachments = (listed?.listaAnexos || [])
-      .filter((item) => item.cNomeArquivo !== artifact?.nomeArquivo)
-      .map((item) => ({
-        id: item.nIdAnexo,
-        filename: item.cNomeArquivo || `anexo-${item.nIdAnexo}`,
-        size: item.nTamanho || item.nTamanhoArquivo || null,
-        source: "omie",
-      }));
+    const sentAttachments = invoiceProcess.emailEnviadoEm
+      ? (invoiceProcess.anexosEnviados || []).map((item) => ({
+          filename: item.filename,
+          hash: item.hash,
+          size: item.size,
+          source: item.filename === artifact?.nomeArquivo ? "invoice" : "sent",
+        }))
+      : [];
+    const attachments = sentAttachments.length ? sentAttachments : [...(invoice ? [invoice] : [])];
     const os = variables.os || {};
     const customer = variables.cliente || {};
     const services = (Array.isArray(os.ServicosPrestados) ? os.ServicosPrestados : []).map((item, index) => {
@@ -373,8 +367,8 @@ defineRoutes("/api/doc-custom", (router) => {
       recipientsConfigured: Boolean(configuredRecipients.configured),
       recipientsUpdatedAt: configuredRecipients.updatedAt || null,
       invoice,
-      attachments: [...(invoice ? [invoice] : []), ...attachments],
-      attachmentsWarning,
+      attachments,
+      attachmentsDeferred: !invoiceProcess.emailEnviadoEm,
     });
   });
 
