@@ -38,24 +38,25 @@ function normalizeOs(os) {
 
 async function buildVariables({ tenantId, base, codigoOs, numeroOs, processoId, accessContext, adapters = {} }) {
   const omie = adapters.gateway || gateway;
+  const omieOptions = { ...adapters, processoId: adapters.processoId || processoId };
   let osRaw;
   if (codigoOs) {
     try {
-      osRaw = await omie.consultarOs(base, accessContext, codigoOs, adapters);
+      osRaw = await omie.consultarOs(base, accessContext, codigoOs, omieOptions);
     } catch (error) {
       // Processos criados antes da separação dos identificadores podem ter o
       // número público salvo em codigoOs. Reconsulta por número para recuperá-los.
       if (numeroOs || error?.code !== "OMIE_API_ERROR") throw error;
-      osRaw = await omie.consultarOsPorNumero(base, accessContext, codigoOs, adapters);
+      osRaw = await omie.consultarOsPorNumero(base, accessContext, codigoOs, omieOptions);
     }
   } else {
-    osRaw = await omie.consultarOsPorNumero(base, accessContext, numeroOs, adapters);
+    osRaw = await omie.consultarOsPorNumero(base, accessContext, numeroOs, omieOptions);
   }
   assertOsContract(osRaw);
   const os = normalizeOs(osRaw);
-  const cliente = await omie.consultarCliente(base, accessContext, os.Cabecalho.nCodCli, adapters);
+  const cliente = await omie.consultarCliente(base, accessContext, os.Cabecalho.nCodCli, omieOptions);
   if (!cliente) throw new GenericError("Cliente da OS nao retornado pela Omie.", { statusCode: 422 });
-  cliente.pais = await omie.consultarPais(base, accessContext, cliente.codigo_pais, adapters);
+  cliente.pais = await omie.consultarPais(base, accessContext, cliente.codigo_pais, omieOptions);
 
   const [moedas, configuracoes, imagens] = await Promise.all([
     (adapters.resolveCurrencies || resolveTenantCurrencies)(tenantId, processoId, adapters),
