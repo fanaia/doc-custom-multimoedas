@@ -478,6 +478,96 @@ async function retry(id, accessContext, actor, adapters = {}) {
   });
 }
 
+function omieStage(os) {
+  return String(os?.Cabecalho?.cEtapa || os?.cabecalho?.cEtapa || "");
+}
+
+function isMappedProcessingStage(os, mapping) {
+  const currentStage = omieStage(os);
+  return Boolean(currentStage && currentStage === String(mapping?.etapaEnvio || ""));
+}
+
+async function archive(id, accessContext, actor, adapters = {}) {
+  return withLock(id, accessContext, async (process) => {
+    if (process.emailEnviadoEm || process.status === "concluido") {
+      throw new GenericError("Faturas já enviadas ou concluídas não podem ser arquivadas.", { statusCode: 409 });
+    }
+    if (process.status === "arquivado" || process.etapa === "Arquivado") return process;
+
+    const startedAt = new Date();
+    const internalContext = internalAccess(process.tenantId);
+    const { base, mapping } = await loadTriggerContext(process, internalContext);
+    let currentOs;
+    let movedToErrorStage = false;
+    try {
+      currentOs = await (adapters.gateway || gateway).consultarOs(
+        base, internalContext, process.codigoOs, adapters,
+      );
+      if (isMappedProcessingStage(currentOs, mapping)) {
+        await (adapters.gateway || gateway).atualizarEtapa(
+          base,
+          internalContext,
+          currentOs,
+          mapping.etapaErro,
+          `Ticket arquivado manualmente na Central Oon por ${actor.userId}.`,
+          adapters,
+        );
+        movedToErrorStage = true;
+      }
+    } catch (error) {
+      const summary = errorSummary(error);
+      await recordEvent(process, {
+        stage: "Arquivar",
+        result: "falha",
+        error: summary,
+        startedAt,
+        userId: actor.userId,
+        message: `Não foi possível sincronizar o arquivamento com o Omie: ${summary.message}`,
+        details: { etapaProcessamento: mapping.etapaEnvio, etapaErro: mapping.etapaErro },
+      });
+      throw new GenericError(
+        "Não foi possível mover a OS para a etapa de erro no Omie. O ticket não foi arquivado; tente novamente.",
+        { statusCode: 502, code: "OMIE_ARCHIVE_STAGE_SYNC_FAILED" },
+      );
+    }
+
+    const now = new Date();
+    const update = await Model("ProcessoFatura").updateOne(
+      {
+        _id: process._id,
+        tenantId: process.tenantId,
+        status: { $ne: "arquivado" },
+        emailEnviadoEm: { $in: [null, ""] },
+      },
+      { $set: { etapa: "Arquivado", status: "arquivado", concluidoEm: now, alerta: "Arquivado manualmente." } },
+    );
+    if (!update.modifiedCount) {
+      const concurrent = await loadProcess(process._id, accessContext);
+      if (concurrent.status === "arquivado" || concurrent.etapa === "Arquivado") return concurrent;
+      throw new GenericError("O processo foi atualizado por outra operação. Reabra a fatura antes de continuar.", {
+        statusCode: 409,
+        code: "PROCESS_CONCURRENT_UPDATE",
+      });
+    }
+    await recordEvent(process, {
+      stage: "Arquivado",
+      result: "sucesso",
+      startedAt,
+      userId: actor.userId,
+      message: movedToErrorStage
+        ? "Ticket arquivado e OS movida automaticamente para a etapa de erro."
+        : "Ticket arquivado; a OS já não estava na etapa de processamento mapeada.",
+      details: {
+        etapaOmieAnterior: omieStage(currentOs),
+        etapaProcessamento: mapping.etapaEnvio,
+        etapaErro: mapping.etapaErro,
+        omieAtualizado: movedToErrorStage,
+      },
+    });
+    return loadProcess(process._id, accessContext);
+  });
+}
+
 async function reject(id, accessContext, actor, reason) {
   return withLock(id, accessContext, async (process) => {
     if (!["Aprovar processamento", "Aprovar fatura"].includes(process.etapa)) {
@@ -587,12 +677,14 @@ async function previewTemplate(templateId, accessContext, input, adapters = {}) 
 
 module.exports = {
   approveInvoice,
+  archive,
   approveProcessing,
   attachInvoice,
   finalizeOmieStatus,
   generateInvoice,
   invoiceSummary,
   internalAccess,
+  isMappedProcessingStage,
   loadProcess,
   previewTrigger,
   previewTemplate,

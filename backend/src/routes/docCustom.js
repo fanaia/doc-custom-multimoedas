@@ -344,16 +344,7 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json({ processo: await workflow.send(req.params.id, req.accessContext, actor(req)) });
   });
   router.private.post("/processos/:id/arquivar", { permission: "process.approve", audit: processAudit("arquivado") }, async (req, res) => {
-    const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
-    if (invoiceProcess.emailEnviadoEm || invoiceProcess.status === "concluido") {
-      throw new GenericError("Faturas já enviadas ou concluídas não podem ser arquivadas.", { statusCode: 409 });
-    }
-    const now = new Date();
-    await Model("ProcessoFatura").updateOne(
-      { _id: invoiceProcess._id, tenantId: req.accessContext.tenantId },
-      { $set: { etapa: "Arquivado", status: "arquivado", concluidoEm: now, alerta: "Arquivado manualmente." } },
-    );
-    res.json({ processo: await workflow.loadProcess(req.params.id, req.accessContext) });
+    res.json({ processo: await workflow.archive(req.params.id, req.accessContext, actor(req)) });
   });
   router.private.post("/processos/:id/tentar-novamente", { permission: "process.retry", audit: processAudit("retentativa") }, async (req, res) => {
     res.json({ processo: await workflow.retry(req.params.id, req.accessContext, actor(req)) });
