@@ -124,6 +124,57 @@ async function archivePreviousUnsentProcesses({ base, trigger, normalized, curre
   return previous.length;
 }
 
+async function archiveProcessesOutsideMappedStage({ base, normalized }) {
+  const filter = {
+    tenantId: String(base.tenantId),
+    baseOmieId: base._id,
+    codigoOs: normalized.codigoOs,
+    status: { $in: ["ativo", "falha", "rejeitado"] },
+    $or: [{ emailEnviadoEm: null }, { emailEnviadoEm: { $exists: false } }],
+  };
+  const processes = await Model("ProcessoFatura").find(filter).select("+tenantId").lean();
+  if (!processes.length) return 0;
+  const mappingIds = [...new Set(processes.map((process) => String(process.gatilhoBaseId || "")).filter(Boolean))];
+  const mappings = await Model("GatilhoBase").find({
+    _id: { $in: mappingIds },
+    tenantId: String(base.tenantId),
+    baseOmieId: base._id,
+  }).lean();
+  const stageByMapping = new Map(mappings.map((mapping) => [String(mapping._id), String(mapping.etapaEnvio || "")]));
+  const leaving = processes.filter((process) =>
+    stageByMapping.get(String(process.gatilhoBaseId)) !== String(normalized.etapa),
+  );
+  if (!leaving.length) return 0;
+  const now = new Date();
+  const ids = leaving.map((process) => process._id);
+  await Model("ProcessoFatura").updateMany({ ...filter, _id: { $in: ids } }, {
+    $set: {
+      etapa: "Arquivado",
+      status: "arquivado",
+      concluidoEm: now,
+      alerta: `Arquivado automaticamente: a OS saiu da etapa mapeada no Omie e foi movida para ${normalized.etapa}.`,
+    },
+  });
+  await Model("EventoProcesso").insertMany(leaving.map((process) => ({
+    tenantId: String(base.tenantId),
+    processoId: process._id,
+    etapa: "Arquivado",
+    tentativa: Number(process.tentativas || 0) + 1,
+    resultado: "ignorado",
+    iniciadoEm: now,
+    finalizadoEm: now,
+    duracaoMs: 0,
+    usuarioId: "webhook-omie",
+    mensagem: "Ticket arquivado automaticamente porque a OS saiu da etapa mapeada.",
+    detalhes: {
+      etapaMapeada: stageByMapping.get(String(process.gatilhoBaseId)) || "",
+      etapaRecebida: normalized.etapa,
+      eventId: normalized.eventId,
+    },
+  })));
+  return leaving.length;
+}
+
 async function hydrateProcessSummary(process, base, normalized) {
   try {
     const accessContext = { tenantId: String(base.tenantId), tenancyModel: "multi_tenant", userId: "webhook-omie" };
@@ -238,6 +289,7 @@ async function receiveWebhook(token, payload) {
       if (!normalized.codigoOs || !normalized.etapa) {
         throw new GenericError("Webhook de OS sem codigo ou etapa.", { statusCode: 422, code: "WEBHOOK_PAYLOAD_INVALID" });
       }
+      const archivedByStageChange = await archiveProcessesOutsideMappedStage({ base, normalized });
       const mappings = await Model("GatilhoBase").find({
         tenantId: base.tenantId,
         baseOmieId: base._id,
@@ -259,9 +311,10 @@ async function receiveWebhook(token, payload) {
       }
       response = {
         accepted: true,
-        ignored: results.length === 0,
-        reason: results.length ? undefined : "etapa-sem-gatilho",
-        message: results.length ? "Webhook recebido. Processo registrado." : "Etapa ignorada.",
+        ignored: results.length === 0 && archivedByStageChange === 0,
+        reason: results.length ? undefined : archivedByStageChange ? "ticket-arquivado-por-mudanca-de-etapa" : "etapa-sem-gatilho",
+        message: results.length ? "Webhook recebido. Processo registrado." : archivedByStageChange ? "Webhook recebido. Ticket anterior arquivado." : "Etapa ignorada.",
+        archived: archivedByStageChange,
         processes: results,
       };
     }
@@ -273,4 +326,4 @@ async function receiveWebhook(token, payload) {
   }
 }
 
-module.exports = { archivePreviousUnsentProcesses, canonical, createProcess, hydrateProcessSummary, findProcessByIdempotencyKey, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
+module.exports = { archivePreviousUnsentProcesses, archiveProcessesOutsideMappedStage, canonical, createProcess, hydrateProcessSummary, findProcessByIdempotencyKey, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
