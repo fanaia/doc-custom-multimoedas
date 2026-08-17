@@ -97,6 +97,13 @@ defineValidation("GatilhoBase", async (data, context) => {
     status: "ativo",
   });
   if (count !== 3) invalid("Sincronize a Base Omie e selecione tres etapas validas de Venda de Servico.", "OMIE_STAGE_INVALID");
+  if (data.gerarAdiantamento) {
+    const [account, category] = await Promise.all([
+      registry.getModel("ContaCorrenteOmie").mongooseModel.exists({ _id: data.contaCorrenteAdiantamentoId, tenantId, baseOmieId: data.baseOmieId, status: "ativo" }),
+      registry.getModel("CategoriaOmie").mongooseModel.exists({ _id: data.categoriaAdiantamentoId, tenantId, baseOmieId: data.baseOmieId, status: "ativo" }),
+    ]);
+    if (!account || !category) invalid("Adiantamento exige conta corrente e categoria ativas da mesma Base Omie.", "OMIE_ADVANCE_CONFIGURATION_REQUIRED");
+  }
 });
 
 for (const modelName of ["CotacaoMoeda", "EtapaOmie", "ProcessoFatura", "ArtefatoPdf", "EventoProcesso", "IntegracaoTicket"]) {
