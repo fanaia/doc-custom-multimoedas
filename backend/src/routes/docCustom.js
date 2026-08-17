@@ -313,8 +313,7 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.get("/processos-operacao", { permission: "process.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     const filter = { tenantId };
-    const safeRegex = (value) => String(value || "").slice(0, 120).replace(/[.*+?^${}()|[\\]\\\\]/g, "\\    const filter = { tenantId };
-    if (req.query.baseOmieId)");
+    const safeRegex = (value) => String(value || "").slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (req.query.baseOmieId) filter.baseOmieId = req.query.baseOmieId;
     if (req.query.etapa) filter.etapa = req.query.etapa;
     if (req.query.status) filter.status = req.query.status;
