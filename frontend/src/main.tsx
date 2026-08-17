@@ -172,6 +172,82 @@ function TicketsIntegracaoPage(){
 
 function DocumentosPage() { const query=useCatalogs(); return <div><Header title="Documentos gerados" description="Documentos criados automaticamente pelos templates e pela esteira de processamento."/><div style={card}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th align="left">Arquivo</th><th align="left">Template</th><th align="left">Tamanho</th><th align="left">Gerado em</th></tr></thead><tbody>{query.data?.documentos.map(d=><tr key={d._id}><td>{d.nomeArquivo}</td><td>{d.templateCodigo} v{d.templateVersao}</td><td>{(Number(d.tamanho)/1024).toFixed(1)} KB</td><td>{new Date(d.geradoEm).toLocaleString("pt-BR")}</td></tr>)}</tbody></table></div></div> }
 
+function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item }) {
+  const { http } = useOonApi();
+  const cache = useQueryClient();
+  const invoiceProcess = parent || record;
+  const processId = String(invoiceProcess?._id || "");
+  const [to, setTo] = useState("");
+  const [cc, setCc] = useState("");
+  const [bcc, setBcc] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const query = useQuery({
+    queryKey: ["invoice-decision", processId],
+    enabled: Boolean(processId),
+    queryFn: async () => (await http.get(`/api/doc-custom/processos/${encodeURIComponent(processId)}/envio`)).data,
+  });
+  useEffect(() => {
+    if (!query.data?.recipients) return;
+    setTo((query.data.recipients.to || []).join("\n"));
+    setCc((query.data.recipients.cc || []).join("\n"));
+    setBcc((query.data.recipients.bcc || []).join("\n"));
+  }, [query.data]);
+  const save = useMutation({
+    mutationFn: async () => (await http.put(`/api/doc-custom/processos/${encodeURIComponent(processId)}/envio/destinatarios`, { to, cc, bcc })).data,
+    onSuccess: async (data) => {
+      setError(""); setMessage(data.message);
+      await query.refetch();
+      cache.invalidateQueries({ queryKey: ["ProcessoFatura"] });
+    },
+    onError: (requestError) => { setMessage(""); setError(errorText(requestError)); },
+  });
+  if (query.isLoading) return <div style={{...card,color:"#64748b"}}>Carregando informações para decisão...</div>;
+  if (query.error) return <Notice error={errorText(query.error)}/>;
+  const data = query.data || {};
+  const operation = data.operation || {};
+  const canEdit = invoiceProcess?.etapa === "Enviar e-mail" && !invoiceProcess?.emailEnviadoEm;
+  const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: operation.currency || "BRL" }).format(Number(value || 0));
+  const bytes = (value: unknown) => value ? `${(Number(value) / 1024).toFixed(1)} KB` : "tamanho não informado";
+  const recipientField = (label: string, hint: string, value: string, setValue: (next: string) => void, required = false) =>
+    <label style={{display:"grid",gap:6,fontWeight:600}}>
+      <span>{label}{required && <span style={{color:"#c92a2a"}}> *</span>}</span>
+      <textarea aria-label={label} style={{...input,minHeight:86,resize:"vertical",fontFamily:"inherit",fontWeight:400}} value={value} disabled={!canEdit} onChange={event=>setValue(event.target.value)} placeholder={"um@email.com\noutro@email.com"}/>
+      <small style={{color:"#64748b",fontWeight:400}}>{hint}</small>
+    </label>;
+  return <div style={{display:"grid",gap:16}}>
+    <section style={{...card,background:"linear-gradient(135deg,#f0f9ff,#ffffff)",borderColor:"#bae6fd"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:16,flexWrap:"wrap"}}>
+        <div><span style={{fontSize:12,fontWeight:700,color:"#0369a1",textTransform:"uppercase",letterSpacing:".05em"}}>Decisão de envio</span><h2 style={{margin:"5px 0 4px",fontSize:22}}>{operation.supplierName}</h2><div style={{color:"#64748b"}}>{operation.document || "Documento não informado"} · OS {operation.orderNumber || operation.orderCode}</div></div>
+        <div style={{textAlign:"right"}}><div style={{color:"#64748b",fontSize:13}}>Valor da fatura</div><strong style={{fontSize:25,color:"#075985"}}>{money(operation.total)}</strong><div style={{color:"#64748b",fontSize:13}}>{operation.baseName}</div></div>
+      </div>
+    </section>
+
+    <section style={card}>
+      <div style={{marginBottom:10}}><h3 style={{margin:0}}>Serviços faturados</h3><small style={{color:"#64748b"}}>{operation.services?.length || 0} item(ns) que compõem a cobrança</small></div>
+      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #dce3ea"}}><th align="left" style={{padding:"9px 6px"}}>Serviço</th><th align="right" style={{padding:"9px 6px"}}>Qtd.</th><th align="right" style={{padding:"9px 6px"}}>Unitário</th><th align="right" style={{padding:"9px 6px"}}>Total</th></tr></thead><tbody>{operation.services?.map((service:any)=><tr key={service.id} style={{borderBottom:"1px solid #eef2f6"}}><td style={{padding:"11px 6px"}}><strong>{service.description}</strong>{service.code&&<div style={{fontSize:12,color:"#64748b"}}>Código {service.code}</div>}</td><td align="right">{service.quantity}</td><td align="right">{money(service.unitValue)}</td><td align="right"><strong>{money(service.totalValue)}</strong></td></tr>)}{!operation.services?.length&&<tr><td colSpan={4} style={{padding:18,color:"#64748b",textAlign:"center"}}>Nenhum serviço retornado no snapshot da OS.</td></tr>}</tbody></table></div>
+    </section>
+
+    <section style={{...card,borderColor:canEdit?"#7dd3fc":"#dce3ea"}}>
+      <div style={{marginBottom:12}}><h3 style={{margin:"0 0 4px"}}>Quem receberá a fatura</h3><p style={{margin:0,color:"#64748b"}}>{canEdit?"Revise e ajuste a lista antes de confirmar o envio. Separe os endereços por linha, vírgula ou ponto e vírgula.":"Lista efetivamente utilizada ou prevista para o envio."}</p></div>
+      <Notice message={message} error={error}/>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12}}>
+        {recipientField("Para", "Destinatários principais; ao menos um é obrigatório.", to, setTo, true)}
+        {recipientField("Cc", "Destinatários que receberão uma cópia visível.", cc, setCc)}
+        {recipientField("Cco", "Destinatários que receberão uma cópia oculta.", bcc, setBcc)}
+      </div>
+      {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><button type="button" style={button} disabled={save.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":"Salvar destinatários"}</button></div>}
+    </section>
+
+    <section style={card}>
+      <h3 style={{margin:"0 0 4px"}}>Arquivos do envio</h3><p style={{margin:"0 0 10px",color:"#64748b"}}>A fatura e os anexos da OS serão enviados juntos.</p>
+      {data.attachmentsWarning&&<Notice error={`Não foi possível consultar todos os anexos do Omie: ${data.attachmentsWarning}`}/>} 
+      <div style={{display:"grid",gap:8}}>{data.attachments?.map((attachment:any,index:number)=><div key={`${attachment.source}-${attachment.id||attachment.filename}-${index}`} style={{display:"flex",justifyContent:"space-between",gap:12,padding:"10px 12px",background:"#f8fafc",borderRadius:8}}><span>{attachment.source==="invoice"?"Fatura":"Anexo"} · <strong>{attachment.filename}</strong></span><span style={{color:"#64748b"}}>{bytes(attachment.size)}</span></div>)}{!data.attachments?.length&&<span style={{color:"#64748b"}}>Nenhum arquivo disponível.</span>}</div>
+    </section>
+  </div>;
+}
+
+
 function ProcessPdfViewer({ parent, record }: { parent?: Item; record?: Item }) {
   const { http } = useOonApi();
   const invoiceProcess = parent || record;
@@ -244,5 +320,5 @@ startCentralFromManifest({ app, ui: uiManifest as Parameters<typeof startCentral
   apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
   meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
   devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
-  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, ProcessPdfViewer },
+  customComponents: { BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, InvoiceDecisionPanel, ProcessPdfViewer },
 });
