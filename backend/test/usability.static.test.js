@@ -240,3 +240,15 @@ test("modal operacional preserva decisão, processo e visualização do PDF", ()
   assert.match(frontend, /Falha na etapa/);
   assert.match(frontend, /<footer/);
 });
+
+test("destinatários podem ser revisados antes da aprovação e há configuração de cópias internas", () => {
+  const routes = read("src/routes/docCustom.js");
+  const workflow = read("src/services/invoiceWorkflow.js");
+  const frontend = read("../frontend/src/main.tsx");
+  assert.match(routes, /"Aprovar processamento", "Aprovar fatura", "Enviar e-mail"/);
+  assert.match(routes, /configuracoes\/destinatarios-internos/);
+  assert.match(workflow, /email-destinatarios-internos/);
+  assert.match(workflow, /withInternalCopies/);
+  assert.match(frontend, /Cópias internas das faturas/);
+  assert.match(frontend, /"Aprovar processamento", "Aprovar fatura", "Enviar e-mail"/);
+});
