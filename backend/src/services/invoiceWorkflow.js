@@ -156,6 +156,24 @@ function invoiceFilename(number) {
   return `invoice-${String(number).replace(/[^a-z0-9._-]/gi, "-")}-${new Date().toISOString().replace(/[:.]/g, "-")}.pdf`;
 }
 
+function invoiceSummary(variables = {}) {
+  const os = variables.os || {};
+  const services = Array.isArray(os.ServicosPrestados) ? os.ServicosPrestados : [];
+  const serviceValue = (item) => {
+    const quantity = Number(item.nQtde ?? item.nQuantidade ?? item.quantidade ?? 1) || 0;
+    const unitValue = Number(item.nValUnit ?? item.nValorUnitario ?? item.nValorUnit ?? item.valorUnitario ?? 0) || 0;
+    const explicitTotal = Number(item.nValTot ?? item.nValorTotal ?? item.nValorServico ?? item.valorTotal);
+    return Number.isFinite(explicitTotal) ? explicitTotal : quantity * unitValue;
+  };
+  const servicesTotal = services.reduce((sum, item) => sum + serviceValue(item), 0);
+  const headerTotal = Number(os?.Cabecalho?.nValorTotal ?? os?.Cabecalho?.nValorOS ?? os.nValorTotal);
+  return {
+    clienteNome: String(variables.cliente?.nome_fantasia || variables.cliente?.razao_social || variables.cliente?.nome || ""),
+    valorFatura: Number.isFinite(headerTotal) ? headerTotal : servicesTotal,
+    quantidadeServicos: services.length,
+  };
+}
+
 async function generateInvoice(invoiceProcess, actor, adapters = {}) {
   const startedAt = new Date();
   const accessContext = internalAccess(invoiceProcess.tenantId);
@@ -196,7 +214,7 @@ async function generateInvoice(invoiceProcess, actor, adapters = {}) {
         htmlSnapshotPendente: html,
         codigoOs: String(variables.os.Cabecalho.nCodOS),
         numeroOs: String(variables.os.Cabecalho.cNumOS),
-        clienteNome: String(variables.cliente.nome_fantasia || variables.cliente.razao_social || ""),
+        ...invoiceSummary(variables),
         cotacoesUsadas: variables.moedas,
         templateSnapshot: templateSnapshot(templates),
         variaveisSnapshot: variablesSnapshot(variables),
@@ -238,7 +256,7 @@ async function generateInvoice(invoiceProcess, actor, adapters = {}) {
       status: "ativo",
       codigoOs: String(variables.os.Cabecalho.nCodOS),
       numeroOs: String(variables.os.Cabecalho.cNumOS),
-      clienteNome: String(variables.cliente.nome_fantasia || variables.cliente.razao_social || ""),
+      ...invoiceSummary(variables),
       artefatoPdfId: artifact._id,
       pdfHash: artifact.hash,
       cotacoesUsadas: variables.moedas,
@@ -573,6 +591,7 @@ module.exports = {
   attachInvoice,
   finalizeOmieStatus,
   generateInvoice,
+  invoiceSummary,
   internalAccess,
   loadProcess,
   previewTrigger,
