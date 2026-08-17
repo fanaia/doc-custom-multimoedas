@@ -95,3 +95,43 @@ test("PDF gerado é descartado pela listagem sem chamar ObterAnexo", async () =>
   assert.deepEqual(attachments, []);
   assert.equal(obtained, 0);
 });
+
+
+test("envio sem anexos omite o campo attachments do payload SendGrid", async () => {
+  let payload;
+  const result = await sendEmail({
+    from: { email: "from@example.com", name: "Teste" },
+    to: ["to@example.com"],
+    subject: "Teste",
+    html: "<p>Teste</p>",
+    attachments: [],
+  }, {
+    apiKey: "test",
+    fetchImpl: async (_url, options) => {
+      payload = JSON.parse(options.body);
+      return { ok: true, status: 202, headers: { get: () => "message-id" } };
+    },
+  });
+  assert.equal(result.id, "message-id");
+  assert.equal(Object.hasOwn(payload, "attachments"), false);
+});
+
+test("erro SendGrid preserva diagnóstico seguro retornado pelo provedor", async () => {
+  await assert.rejects(
+    () => sendEmail({
+      from: { email: "from@example.com" },
+      to: ["to@example.com"],
+      subject: "Teste",
+      html: "<p>Teste</p>",
+    }, {
+      apiKey: "test",
+      fetchImpl: async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ errors: [{ message: "The from address does not match a verified Sender Identity." }] }),
+      }),
+    }),
+    (error) => error.code === "EMAIL_PROVIDER_ERROR"
+      && error.message.includes("verified Sender Identity"),
+  );
+});
