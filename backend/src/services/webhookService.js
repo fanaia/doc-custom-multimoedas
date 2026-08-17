@@ -82,7 +82,7 @@ async function verifyWebhookAppKey(base, appKey) {
 
 async function findProcessByIdempotencyKey(key, tenantId) {
   const process = await Model("ProcessoFatura").findOne({ idempotencyKey: key })
-    .select("+tenantId +idempotencyKey");
+    .select("+tenantId +idempotencyKey +htmlSnapshotPendente");
   if (!process || String(process.tenantId) !== String(tenantId)) return null;
   return process;
 }
@@ -175,13 +175,22 @@ async function archiveProcessesOutsideMappedStage({ base, normalized }) {
   return leaving.length;
 }
 
+function hasPreparedSnapshot(process) {
+  return Boolean(
+    process.htmlSnapshotPendente
+      && process.templateSnapshot?.document?.codigo
+      && process.variaveisSnapshot?.os?.Cabecalho,
+  );
+}
+
 async function hydrateProcessSummary(process, base) {
   try {
     await workflow.prepareInvoiceSnapshot(process, { processoId: process._id });
   } catch (error) {
     await Model("ProcessoFatura").updateOne({ _id: process._id, tenantId: base.tenantId }, {
-      $set: { alerta: `Dados completos serão recarregados ao gerar a fatura: ${String(error?.message || error).slice(0, 300)}` },
+      $set: { alerta: `Falha ao carregar os dados completos do ticket: ${String(error?.message || error).slice(0, 300)}` },
     });
+    throw error;
   }
 }
 
@@ -191,8 +200,13 @@ async function createProcess({ base, mapping, trigger, normalized }) {
   ].join(":"));
   const existing = await findProcessByIdempotencyKey(key, base.tenantId);
   if (existing) {
+    let recovered = false;
+    if (!hasPreparedSnapshot(existing)) {
+      await hydrateProcessSummary(existing, base);
+      recovered = true;
+    }
     const archived = await archivePreviousUnsentProcesses({ base, trigger, normalized, currentProcessId: existing._id });
-    return { process: existing, duplicate: true, archived };
+    return { process: existing, duplicate: !recovered, archived };
   }
   try {
     const process = await Model("ProcessoFatura").create({
@@ -208,7 +222,6 @@ async function createProcess({ base, mapping, trigger, normalized }) {
       status: "ativo",
       iniciadoEm: new Date(),
     });
-    await hydrateProcessSummary(process, base);
     await Model("EventoProcesso").create({
       tenantId: String(base.tenantId),
       processoId: process._id,
@@ -222,6 +235,7 @@ async function createProcess({ base, mapping, trigger, normalized }) {
       mensagem: "Processo criado por alteracao de etapa da OS.",
       detalhes: { eventId: normalized.eventId, topic: normalized.topic },
     });
+    await hydrateProcessSummary(process, base);
     const archived = await archivePreviousUnsentProcesses({ base, trigger, normalized, currentProcessId: process._id });
     return { process, duplicate: false, archived };
   } catch (error) {
@@ -310,4 +324,4 @@ async function receiveWebhook(token, payload) {
   }
 }
 
-module.exports = { archivePreviousUnsentProcesses, archiveProcessesOutsideMappedStage, canonical, createProcess, hydrateProcessSummary, findProcessByIdempotencyKey, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
+module.exports = { archivePreviousUnsentProcesses, archiveProcessesOutsideMappedStage, canonical, createProcess, hydrateProcessSummary, hasPreparedSnapshot, findProcessByIdempotencyKey, isOsStageEvent, matchesAppKeyMask, normalizeWebhook, receiveWebhook, verifyWebhookAppKey };
