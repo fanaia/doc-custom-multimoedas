@@ -4,7 +4,6 @@ const { GenericError, registry } = require("@oondemand/oon-core-back");
 const { resolveBaseByWebhookToken } = require("./baseCredentials");
 const { hash, safeEqual } = require("./security");
 const integrationTickets = require("./integrationTickets");
-const gateway = require("./integrations/omieGateway");
 const workflow = require("./invoiceWorkflow");
 
 function Model(name) {
@@ -176,34 +175,12 @@ async function archiveProcessesOutsideMappedStage({ base, normalized }) {
   return leaving.length;
 }
 
-async function hydrateProcessSummary(process, base, normalized) {
+async function hydrateProcessSummary(process, base) {
   try {
-    const accessContext = { tenantId: String(base.tenantId), tenancyModel: "multi_tenant", userId: "webhook-omie" };
-    const os = normalized.codigoOs
-      ? await gateway.consultarOs(base, accessContext, normalized.codigoOs, { processoId: process._id })
-      : await gateway.consultarOsPorNumero(base, accessContext, normalized.numeroOs, { processoId: process._id });
-    const services = Array.isArray(os?.ServicosPrestados) ? os.ServicosPrestados : [];
-    const servicesTotal = services.reduce((sum, item) => {
-      const quantity = Number(item.nQtde ?? item.nQuantidade ?? item.quantidade ?? 1) || 0;
-      const unitValue = Number(item.nValUnit ?? item.nValorUnitario ?? item.nValorUnit ?? item.valorUnitario ?? 0) || 0;
-      const explicitTotal = Number(item.nValTot ?? item.nValorTotal ?? item.nValorServico ?? item.valorTotal);
-      return sum + (Number.isFinite(explicitTotal) ? explicitTotal : quantity * unitValue);
-    }, 0);
-    const headerTotal = Number(os?.Cabecalho?.nValorTotal ?? os?.Cabecalho?.nValorOS ?? os?.nValorTotal);
-    const customer = os?.Cabecalho?.nCodCli
-      ? await gateway.consultarCliente(base, accessContext, os.Cabecalho.nCodCli, { processoId: process._id })
-      : null;
-    await Model("ProcessoFatura").updateOne({ _id: process._id, tenantId: base.tenantId }, { $set: {
-      codigoOs: String(os?.Cabecalho?.nCodOS || normalized.codigoOs),
-      numeroOs: String(os?.Cabecalho?.cNumOS || normalized.numeroOs),
-      clienteNome: String(customer?.nome_fantasia || customer?.razao_social || customer?.nome || ""),
-      valorFatura: Number.isFinite(headerTotal) ? headerTotal : servicesTotal,
-      quantidadeServicos: services.length,
-      variaveisSnapshot: { os, cliente: customer || {} },
-    } });
+    await workflow.prepareInvoiceSnapshot(process, { processoId: process._id });
   } catch (error) {
     await Model("ProcessoFatura").updateOne({ _id: process._id, tenantId: base.tenantId }, {
-      $set: { alerta: `Resumo da OS será atualizado ao gerar a fatura: ${String(error?.message || error).slice(0, 300)}` },
+      $set: { alerta: `Dados completos serão recarregados ao gerar a fatura: ${String(error?.message || error).slice(0, 300)}` },
     });
   }
 }
@@ -231,7 +208,7 @@ async function createProcess({ base, mapping, trigger, normalized }) {
       status: "ativo",
       iniciadoEm: new Date(),
     });
-    await hydrateProcessSummary(process, base, normalized);
+    await hydrateProcessSummary(process, base);
     await Model("EventoProcesso").create({
       tenantId: String(base.tenantId),
       processoId: process._id,
