@@ -157,12 +157,13 @@ test("modal da esteira prioriza a decisão e confirma destinatários antes do en
   assert.match(ui, /"component": "InvoiceDecisionPanel"/);
   assert.doesNotMatch(ui, /"id": "enviar"/);
   assert.match(frontend, /Quem receberá a fatura/);
-  assert.match(frontend, /Confirmar e enviar fatura/);
+  assert.match(frontend, /botão de ação no rodapé/);
   assert.match(frontend, /Serviços faturados/);
   assert.match(routes, /\["Aprovar fatura", "Enviar e-mail"\]\.includes\(invoiceProcess\.etapa\)/);
   assert.match(routes, /etapa: \{ \$in: \["Aprovar fatura", "Enviar e-mail"\] \}/);
   assert.match(frontend, /const canEdit = \["Aprovar fatura", "Enviar e-mail"\]\.includes\(operation\.stage\)/);
-  assert.match(frontend, /const canSend = operation\.stage === "Enviar e-mail"/);
+  assert.doesNotMatch(frontend, /const canSend = operation\.stage === "Enviar e-mail"/);
+  assert.match(ui, /"id": "enviar-email"/);
   assert.match(frontend, /Salvar destinatários/);
 });
 
@@ -178,4 +179,30 @@ test("abertura da decisão não consome a API de anexos do Omie", () => {
   assert.match(decisionRoute, /anexosEnviados/);
   assert.match(decisionRoute, /attachmentsDeferred/);
   assert.match(frontend, /somente ao confirmar o envio, evitando consumo redundante/);
+});
+
+
+test("esteira exibe resumo financeiro, ações operacionais e arquiva ticket anterior da OS", () => {
+  const model = read("src/models/ProcessoFatura.js");
+  const webhook = read("src/services/webhookService.js");
+  const workflow = read("src/services/invoiceWorkflow.js");
+  const routes = read("src/routes/docCustom.js");
+  const ui = read("../frontend/central.ui.json");
+  const frontend = read("../frontend/src/main.tsx");
+  assert.match(model, /valorFatura/);
+  assert.match(model, /quantidadeServicos/);
+  assert.match(webhook, /hydrateProcessSummary/);
+  assert.match(webhook, /Arquivado automaticamente após nova entrada da OS/);
+  assert.doesNotMatch(webhook, /gatilhoId: trigger\._id,\n    codigoOs/);
+  assert.match(workflow, /item\.nValTot/);
+  assert.match(routes, /processos\/:id\/arquivar/);
+  assert.match(routes, /item\.nValTot/);
+  assert.match(ui, /"cardFields": \[/);
+  assert.match(ui, /"valorFatura"/);
+  assert.match(ui, /"quantidadeServicos"/);
+  assert.match(ui, /"id": "enviar-email"/);
+  assert.match(ui, /"id": "arquivar"/);
+  assert.doesNotMatch(ui, /"id": "reprocessar"/);
+  assert.doesNotMatch(frontend, /Confirmar e enviar fatura/);
+  assert.match(frontend, /botão de ação no rodapé/);
 });

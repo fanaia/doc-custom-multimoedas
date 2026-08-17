@@ -203,24 +203,11 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
     },
     onError: (requestError) => { setMessage(""); setError(errorText(requestError)); },
   });
-  const send = useMutation({
-    mutationFn: async () => {
-      await http.put(`/api/doc-custom/processos/${encodeURIComponent(processId)}/envio/destinatarios`, { to, cc, bcc });
-      return (await http.post(`/api/doc-custom/processos/${encodeURIComponent(processId)}/enviar`)).data;
-    },
-    onSuccess: async () => {
-      setError(""); setMessage("Fatura enviada e processo atualizado com sucesso.");
-      await query.refetch();
-      cache.invalidateQueries();
-    },
-    onError: (requestError) => { setMessage(""); setError(errorText(requestError)); },
-  });
   if (query.isLoading) return <div style={{...card,color:"#64748b"}}>Carregando informações para decisão...</div>;
   if (query.error) return <Notice error={errorText(query.error)}/>;
   const data = query.data || {};
   const operation = data.operation || {};
   const canEdit = ["Aprovar fatura", "Enviar e-mail"].includes(operation.stage) && !invoiceProcess?.emailEnviadoEm;
-  const canSend = operation.stage === "Enviar e-mail" && !invoiceProcess?.emailEnviadoEm;
   const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: operation.currency || "BRL" }).format(Number(value || 0));
   const bytes = (value: unknown) => value ? `${(Number(value) / 1024).toFixed(1)} KB` : "tamanho não informado";
   const recipientField = (label: string, hint: string, value: string, setValue: (next: string) => void, required = false) =>
@@ -238,19 +225,19 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
     </section>
 
     <section style={card}>
-      <div style={{marginBottom:10}}><h3 style={{margin:0}}>Serviços faturados</h3><small style={{color:"#64748b"}}>{operation.services?.length || 0} item(ns) que compõem a cobrança</small></div>
+      <div style={{marginBottom:10}}><h3 style={{margin:0}}>Serviços faturados</h3><small style={{color:"#64748b"}}>{operation.serviceCount ?? operation.services?.length ?? 0} serviço(s) que compõem a cobrança</small></div>
       <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{borderBottom:"1px solid #dce3ea"}}><th align="left" style={{padding:"9px 6px"}}>Serviço</th><th align="right" style={{padding:"9px 6px"}}>Qtd.</th><th align="right" style={{padding:"9px 6px"}}>Unitário</th><th align="right" style={{padding:"9px 6px"}}>Total</th></tr></thead><tbody>{operation.services?.map((service:any)=><tr key={service.id} style={{borderBottom:"1px solid #eef2f6"}}><td style={{padding:"11px 6px"}}><strong>{service.description}</strong>{service.code&&<div style={{fontSize:12,color:"#64748b"}}>Código {service.code}</div>}</td><td align="right">{service.quantity}</td><td align="right">{money(service.unitValue)}</td><td align="right"><strong>{money(service.totalValue)}</strong></td></tr>)}{!operation.services?.length&&<tr><td colSpan={4} style={{padding:18,color:"#64748b",textAlign:"center"}}>Nenhum serviço retornado no snapshot da OS.</td></tr>}</tbody></table></div>
     </section>
 
     <section style={{...card,borderColor:canEdit?"#7dd3fc":"#dce3ea"}}>
-      <div style={{marginBottom:12}}><h3 style={{margin:"0 0 4px"}}>Quem receberá a fatura</h3><p style={{margin:0,color:"#64748b"}}>{canEdit?(canSend?"Revise e ajuste a lista antes de confirmar o envio. Separe os endereços por linha, vírgula ou ponto e vírgula.":"Revise os destinatários antes de aprovar a fatura. A lista salva será mantida para a etapa de envio."):"Lista efetivamente utilizada no envio."}</p></div>
+      <div style={{marginBottom:12}}><h3 style={{margin:"0 0 4px"}}>Quem receberá a fatura</h3><p style={{margin:0,color:"#64748b"}}>{canEdit?"Revise os destinatários e salve a lista. O envio será confirmado pelo botão de ação no rodapé.":"Lista efetivamente utilizada no envio."}</p></div>
       <Notice message={message} error={error}/>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:12}}>
         {recipientField("Para", "Destinatários principais; ao menos um é obrigatório.", to, setTo, true)}
         {recipientField("Cc", "Destinatários que receberão uma cópia visível.", cc, setCc)}
         {recipientField("Cco", "Destinatários que receberão uma cópia oculta.", bcc, setBcc)}
       </div>
-      {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button type="button" style={canSend?secondary:button} disabled={save.isPending||send.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":canSend?"Salvar para depois":"Salvar destinatários"}</button>{canSend&&<button type="button" style={button} disabled={send.isPending||save.isPending||!to.trim()} onClick={()=>confirm("Confirmar o envio da fatura para os destinatários informados?")&&send.mutate()}>{send.isPending?"Enviando...":"Confirmar e enviar fatura"}</button>}</div></div>}
+      {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><button type="button" style={button} disabled={save.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":"Salvar destinatários"}</button></div>}
     </section>
 
     <section style={card}>

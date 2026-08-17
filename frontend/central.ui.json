@@ -141,7 +141,7 @@
       "list": {
         "builtInActions": { "create": false, "edit": false, "delete": false },
         "filters": [{ "field": "baseOmieId", "label": "Base", "type": "ref" }, { "field": "codigoOs", "label": "OS", "type": "text" }, { "field": "clienteNome", "label": "Cliente", "type": "text" }, { "field": "etapa", "label": "Etapa", "type": "select", "options": [{ "label": "Todas", "value": "" }, { "label": "Aprovar processamento", "value": "Aprovar processamento" }, { "label": "Aprovar fatura", "value": "Aprovar fatura" }, { "label": "Enviar e-mail", "value": "Enviar e-mail" }, { "label": "Falha", "value": "Falha" }, { "label": "Concluído", "value": "Concluido" }, { "label": "Rejeitado", "value": "Rejeitado" }] }, { "field": "iniciadoEm", "label": "Período", "type": "dateRange" }],
-        "columns": ["numeroOs", "clienteNome", "baseOmieId", "etapa", "status", "falhaNaEtapa", "tentativas", "iniciadoEm", "concluidoEm"]
+        "columns": ["numeroOs", "clienteNome", "valorFatura", "quantidadeServicos", "etapa", "status", "baseOmieId", "iniciadoEm", "concluidoEm"]
       }
     },
     { "model": "EventoProcesso", "mode": "dynamic", "path": "/auditoria-processos", "label": "Auditoria de processos", "section": "Auditoria", "list": { "filters": [{ "field": "processoId", "label": "Processo", "type": "ref" }, { "field": "etapa", "label": "Etapa", "type": "text" }, { "field": "resultado", "label": "Resultado", "type": "select", "options": [{ "label": "Todos", "value": "" }, { "label": "Iniciado", "value": "iniciado" }, { "label": "Sucesso", "value": "sucesso" }, { "label": "Falha", "value": "falha" }, { "label": "Rejeitado", "value": "rejeitado" }] }, { "field": "iniciadoEm", "label": "Período", "type": "dateRange" }], "columns": ["processoId", "etapa", "tentativa", "resultado", "iniciadoEm", "finalizadoEm", "duracaoMs", "usuarioId", "codigoErro", "mensagem"] } },
@@ -166,13 +166,16 @@
         { "id": "Atualizar status Omie", "label": "Atualizar status Omie" },
         { "id": "Concluido", "label": "Concluído" },
         { "id": "Falha", "label": "Falha" },
-        { "id": "Rejeitado", "label": "Rejeitado" }
+        { "id": "Rejeitado", "label": "Rejeitado" },
+        { "id": "Arquivado", "label": "Arquivado" }
       ],
       "filters": [{ "field": "baseOmieId", "label": "Base", "type": "ref" }, { "field": "codigoOs", "label": "OS", "type": "text" }, { "field": "clienteNome", "label": "Cliente", "type": "text" }, { "field": "iniciadoEm", "label": "Período", "type": "dateRange" }],
       "viewModes": ["board", "list"],
       "defaultView": "board",
       "create": { "enabled": false },
       "defaultActions": false,
+      "cardFields": ["clienteNome", "valorFatura", "quantidadeServicos"],
+      "columns": ["numeroOs", "clienteNome", "valorFatura", "quantidadeServicos", "etapa", "status", "baseOmieId", "iniciadoEm"],
       "relations": {
         "eventos": { "model": "EventoProcesso", "foreignKey": "processoId", "parentKey": "_id", "label": "Auditoria" },
         "cotacoes": { "model": "CotacaoMoeda", "foreignKey": "processoId", "parentKey": "_id", "label": "Cotações" },
@@ -198,7 +201,8 @@
         { "id": "aprovar-fatura", "label": "Aprovar fatura", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/aprovar-fatura", "permissions": ["process.approve"], "hiddenWhen": { "field": "etapa", "notEquals": "Aprovar fatura" }, "group": "approval", "tone": "success", "operationalKind": "approval", "refresh": ["all"] },
         { "id": "rejeitar-fatura", "label": "Rejeitar fatura", "type": "formAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/rejeitar", "permissions": ["process.approve"], "hiddenWhen": { "field": "etapa", "notEquals": "Aprovar fatura" }, "title": "Rejeitar fatura", "submitLabel": "Rejeitar", "fields": [{ "field": "motivo", "label": "Motivo", "type": "textarea", "required": true }], "group": "approval", "tone": "danger", "operationalKind": "approval", "refresh": ["all"] },
         { "id": "tentar-novamente", "label": "Tentar novamente", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/tentar-novamente", "permissions": ["process.retry"], "hiddenWhen": { "field": "etapa", "notEquals": "Falha" }, "group": "custom", "tone": "warning", "operationalKind": "business", "refresh": ["all"] },
-        { "id": "reprocessar", "label": "Reprocessar", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/reprocessar", "permissions": ["process.reprocess"], "confirm": { "title": "Criar um novo processo?", "description": "O histórico atual será preservado e um novo processo começará na primeira aprovação." }, "group": "custom", "tone": "neutral", "operationalKind": "business", "refresh": ["all"] }
+        { "id": "enviar-email", "label": "Enviar e-mail", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/enviar", "permissions": ["process.send"], "hiddenWhen": { "field": "etapa", "notEquals": "Enviar e-mail" }, "group": "approval", "tone": "success", "operationalKind": "business", "refresh": ["all"] },
+        { "id": "arquivar", "label": "Arquivar", "type": "apiAction", "method": "POST", "endpoint": "/api/doc-custom/processos/:id/arquivar", "permissions": ["process.approve"], "hiddenWhen": { "field": "status", "in": ["concluido", "arquivado"] }, "confirm": { "title": "Arquivar esta fatura?", "description": "O ticket sairá da operação ativa e permanecerá no histórico." }, "group": "custom", "tone": "neutral", "operationalKind": "business", "refresh": ["all"] }
       ]
     }
   ],

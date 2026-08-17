@@ -29,6 +29,8 @@ defineTenantModel({
     codigoOs: fields.string({ required: true, label: "Codigo OS", searchable: true }),
     numeroOs: fields.string({ label: "Numero OS", searchable: true }),
     clienteNome: fields.string({ label: "Cliente", searchable: true }),
+    valorFatura: fields.number({ label: "Valor da fatura", default: 0 }),
+    quantidadeServicos: fields.number({ label: "Qtd. serviços", default: 0 }),
     etapa: fields.enum(ETAPAS, { required: true, label: "Etapa", default: "Aprovar processamento" }),
     status: fields.enum(["ativo", "concluido", "falha", "rejeitado", "arquivado"], {
       required: true,
