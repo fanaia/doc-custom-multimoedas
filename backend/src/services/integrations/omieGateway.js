@@ -187,7 +187,7 @@ function buildStageUpdate(current, etapa, observacao, adiantamento) {
     const parcelas = Array.isArray(current?.Parcelas) ? current.Parcelas : [];
     if (!parcelas.length) throw new GenericError("OS sem parcelas para gerar adiantamento.", { statusCode: 422, code: "OMIE_ADVANCE_INSTALLMENTS_REQUIRED" });
     update.Cabecalho.dDtPrevisao = current.Cabecalho.dDtPrevisao;
-    update.Cabecalho.cCodParc = current.Cabecalho.cCodParc || "999";
+    update.Cabecalho.cCodParc = "999";
     update.Parcelas = parcelas.map((parcela) => ({
       ...parcela,
       parcela_adiantamento: "S",
