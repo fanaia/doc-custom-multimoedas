@@ -397,10 +397,18 @@ defineRoutes("/api/doc-custom", (router) => {
       });
     }
     const updatedAt = new Date();
-    await Model("ProcessoFatura").updateOne(
-      { _id: invoiceProcess._id, tenantId: req.accessContext.tenantId },
+    const result = await Model("ProcessoFatura").updateOne(
+      {
+        _id: invoiceProcess._id,
+        tenantId: req.accessContext.tenantId,
+        etapa: "Enviar e-mail",
+        emailProviderId: { $in: [null, ""] },
+      },
       { $set: { destinatariosEnvio: { configured: true, ...recipients, updatedAt, updatedBy: actor(req).userId } } },
     );
+    if (!result.modifiedCount) {
+      throw new GenericError("O processo foi atualizado por outra operação. Reabra a fatura antes de continuar.", { statusCode: 409 });
+    }
     res.json({ message: "Destinatários atualizados. Estes endereços serão usados no envio.", recipients, updatedAt });
   });
 
