@@ -157,7 +157,7 @@ test("modal da esteira prioriza a decisão e confirma destinatários antes do en
   assert.match(ui, /"component": "InvoiceDecisionPanel"/);
   assert.doesNotMatch(ui, /"id": "enviar"/);
   assert.match(frontend, /Quem receberá a fatura/);
-  assert.match(frontend, /Confirmar e enviar fatura/);
+  assert.match(frontend, /botão de ação no rodapé/);
   assert.match(frontend, /Serviços faturados/);
   assert.match(routes, /\["Aprovar fatura", "Enviar e-mail"\]\.includes\(invoiceProcess\.etapa\)/);
   assert.match(routes, /etapa: \{ \$in: \["Aprovar fatura", "Enviar e-mail"\] \}/);
