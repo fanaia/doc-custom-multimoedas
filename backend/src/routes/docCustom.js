@@ -6,7 +6,7 @@ const {
   registry,
 } = require("@oondemand/oon-core-back");
 const { configureCredentials, findScopedBase, getWebhookAccess, rotateWebhook } = require("../services/baseCredentials");
-const { getConfiguration, resolvedConfigurations } = require("../services/configuration");
+const { AUTOMATION_CODES, AUTOMATION_DEFINITIONS, getConfiguration, resolvedConfigurations } = require("../services/configuration");
 const { sendEmail } = require("../services/emailSender");
 const gateway = require("../services/integrations/omieGateway");
 const workflow = require("../services/invoiceWorkflow");
@@ -27,6 +27,10 @@ function actor(req) {
 
 function processAudit(action) {
   return { entidade: "ProcessoFatura", acao: action };
+}
+
+function scheduleProcessAutomations(id, accessContext) {
+  setImmediate(() => workflow.runConfiguredAutomations(id, accessContext).catch((error) => console.error("Falha na automação do processo", String(error?.message || error))));
 }
 
 const DEFAULT_CURRENCIES = [
@@ -106,7 +110,7 @@ defineRoutes("/api/doc-custom", (router) => {
       Model("CategoriaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("ContaCorrenteOmie").find({ tenantId }).select("baseOmieId codigo descricao banco status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("Gatilho").find({ tenantId }).populate("templateDocumentoId templateAssuntoId templateCorpoId", "codigo descricao tipo versao contratoVariaveis").sort({ descricao: 1 }).lean(),
-      Model("GatilhoBase").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ createdAt: 1 }).lean(),
+      Model("GatilhoBase").find({ tenantId }).populate("baseOmieId", "nome codigo").populate("contaCorrenteAdiantamentoId", "codigo descricao banco").populate("categoriaAdiantamentoId", "codigo descricao").sort({ createdAt: 1 }).lean(),
       sendgrid.getPublic(tenantId),
     ]);
     res.json({ bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos, sendgridConfig });
@@ -172,14 +176,23 @@ defineRoutes("/api/doc-custom", (router) => {
     const trigger = await Model("Gatilho").exists({ _id: triggerId, tenantId });
     if (!trigger) throw new GenericError("Gatilho nao encontrado.", { statusCode: 404 });
     const stages = [input.etapaEnvio, input.etapaErro, input.etapaSucesso].map((value) => String(value || ""));
-    if (new Set(stages).size !== 3 || stages.some((value) => !value)) {
-      throw new GenericError("Selecione etapas diferentes para envio, erro e sucesso.", { statusCode: 422 });
-    }
+    if (new Set(stages).size !== 3 || stages.some((value) => !value)) throw new GenericError("Selecione etapas diferentes para envio, erro e sucesso.", { statusCode: 422 });
     const count = await Model("EtapaOmie").countDocuments({ tenantId, baseOmieId: base._id, codigo: { $in: stages }, status: "ativo" });
     if (count !== 3) throw new GenericError("Selecione somente etapas ativas sincronizadas para esta Base Omie.", { statusCode: 422, code: "OMIE_STAGE_INVALID" });
-    return { baseOmieId: base._id, etapaEnvio: stages[0], etapaErro: stages[1], etapaSucesso: stages[2], status: input.status === "inativo" ? "inativo" : "ativo" };
+    const gerarAdiantamento = input.gerarAdiantamento === true || String(input.gerarAdiantamento).toLowerCase() === "true";
+    let contaCorrenteAdiantamentoId = null;
+    let categoriaAdiantamentoId = null;
+    if (gerarAdiantamento) {
+      const [account, category] = await Promise.all([
+        Model("ContaCorrenteOmie").findOne({ _id: input.contaCorrenteAdiantamentoId, tenantId, baseOmieId: base._id, status: "ativo" }),
+        Model("CategoriaOmie").findOne({ _id: input.categoriaAdiantamentoId, tenantId, baseOmieId: base._id, status: "ativo" }),
+      ]);
+      if (!account || !category) throw new GenericError("Para gerar adiantamento, informe uma conta corrente e uma categoria padrão ativas da mesma Base Omie.", { statusCode: 422, code: "OMIE_ADVANCE_CONFIGURATION_REQUIRED" });
+      contaCorrenteAdiantamentoId = account._id;
+      categoriaAdiantamentoId = category._id;
+    }
+    return { baseOmieId: base._id, etapaEnvio: stages[0], etapaErro: stages[1], etapaSucesso: stages[2], gerarAdiantamento, contaCorrenteAdiantamentoId, categoriaAdiantamentoId, status: input.status === "inativo" ? "inativo" : "ativo" };
   }
-
   async function validateTriggerInput(input, tenantId) {
     const expected = [[input.templateDocumentoId, "documento"], [input.templateAssuntoId, "assunto"], [input.templateCorpoId, "corpo-email"]];
     for (const [id, tipo] of expected) {
@@ -332,10 +345,14 @@ defineRoutes("/api/doc-custom", (router) => {
   });
 
   router.private.post("/processos/:id/aprovar-processamento", { permission: "process.approve", audit: processAudit("processamento-aprovado") }, async (req, res) => {
-    res.json({ processo: await workflow.approveProcessing(req.params.id, req.accessContext, actor(req)) });
+    const processo = await workflow.approveProcessing(req.params.id, req.accessContext, actor(req));
+    scheduleProcessAutomations(req.params.id, req.accessContext);
+    res.json({ processo });
   });
   router.private.post("/processos/:id/aprovar-fatura", { permission: "process.approve", audit: processAudit("fatura-aprovada") }, async (req, res) => {
-    res.json({ processo: await workflow.approveInvoice(req.params.id, req.accessContext, actor(req)) });
+    const processo = await workflow.approveInvoice(req.params.id, req.accessContext, actor(req));
+    scheduleProcessAutomations(req.params.id, req.accessContext);
+    res.json({ processo });
   });
   router.private.post("/processos/:id/rejeitar", { permission: "process.approve", audit: processAudit("rejeitado") }, async (req, res) => {
     res.json({ processo: await workflow.reject(req.params.id, req.accessContext, actor(req), req.body?.motivo) });
@@ -347,7 +364,9 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json({ processo: await workflow.archive(req.params.id, req.accessContext, actor(req)) });
   });
   router.private.post("/processos/:id/tentar-novamente", { permission: "process.retry", audit: processAudit("retentativa") }, async (req, res) => {
-    res.json({ processo: await workflow.retry(req.params.id, req.accessContext, actor(req)) });
+    const processo = await workflow.retry(req.params.id, req.accessContext, actor(req));
+    scheduleProcessAutomations(req.params.id, req.accessContext);
+    res.json({ processo });
   });
   router.private.post("/processos/:id/reprocessar", { permission: "process.reprocess", audit: processAudit("reprocessado") }, async (req, res) => {
     res.status(201).json({ processo: await workflow.reprocess(req.params.id, req.accessContext, actor(req)) });
@@ -538,6 +557,18 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json({ message: "Imagem excluida com sucesso." });
   });
 
+  router.private.put("/configuracoes/automacoes", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "automacoes-atualizadas" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const Config = Model("Configuracao");
+    const enabled = new Set(Array.isArray(req.body?.habilitadas) ? req.body.habilitadas.filter((code) => AUTOMATION_CODES.has(code)) : []);
+    await Promise.all(AUTOMATION_DEFINITIONS.map(({ code, label }) => Config.findOneAndUpdate(
+      { tenantId, codigo: code, $or: [{ baseOmieId: null }, { baseOmieId: { $exists: false } }] },
+      { $set: { descricao: label, tipo: "booleano", valor: enabled.has(code) ? "true" : "false", baseOmieId: null, status: "ativo" }, $setOnInsert: { tenantId, codigo: code } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    )));
+    res.json({ message: "Automações atualizadas com sucesso.", habilitadas: [...enabled] });
+  });
+
   router.private.put("/configuracoes/destinatarios-internos", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "destinatarios-internos-atualizados" } }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     const recipients = normalizeRecipients({ cc: req.body?.emails });
@@ -575,7 +606,7 @@ defineRoutes("/api/doc-custom", (router) => {
 
   router.private.post("/configuracoes", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "criada" } }, async (req, res) => {
     const input = { ...(req.body || {}) };
-    if (String(input.codigo || "") === "email-destinatarios-internos") {
+    if (String(input.codigo || "") === "email-destinatarios-internos" || AUTOMATION_CODES.has(String(input.codigo || ""))) {
       throw new GenericError("Use a seção Cópias internas das faturas para alterar esta configuração.", { statusCode: 409 });
     }
     if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else delete input.baseOmieId;
@@ -584,7 +615,7 @@ defineRoutes("/api/doc-custom", (router) => {
   });
   router.private.put("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "atualizada" } }, async (req, res) => {
     const input = { ...(req.body || {}) }; if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else input.baseOmieId = null;
-    const configuracao = await Model("Configuracao").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $ne: "email-destinatarios-internos" } }, { $set: input }, { new: true, runValidators: true });
+    const configuracao = await Model("Configuracao").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $nin: ["email-destinatarios-internos", ...AUTOMATION_CODES] } }, { $set: input }, { new: true, runValidators: true });
     if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ configuracao });
   });
   router.private.delete("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "excluida" } }, async (req, res) => {

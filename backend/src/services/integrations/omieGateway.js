@@ -176,21 +176,31 @@ async function downloadAttachment(url, options = {}) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-function buildStageUpdate(current, etapa, observacao) {
+function buildStageUpdate(current, etapa, observacao, adiantamento) {
   const existing = String(current?.Observacoes?.cObsOS || "");
   const appended = existing.includes(observacao) ? existing : [existing, observacao].filter(Boolean).join("\n");
-  return {
-    Cabecalho: {
-      nCodOS: Number(current.Cabecalho.nCodOS),
-      cEtapa: etapa,
-    },
+  const update = {
+    Cabecalho: { nCodOS: Number(current.Cabecalho.nCodOS), cEtapa: etapa },
     Observacoes: { cObsOS: appended },
   };
+  if (adiantamento?.enabled) {
+    const parcelas = Array.isArray(current?.Parcelas) ? current.Parcelas : [];
+    if (!parcelas.length) throw new GenericError("OS sem parcelas para gerar adiantamento.", { statusCode: 422, code: "OMIE_ADVANCE_INSTALLMENTS_REQUIRED" });
+    update.Cabecalho.dDtPrevisao = current.Cabecalho.dDtPrevisao;
+    update.Cabecalho.cCodParc = "999";
+    update.Parcelas = parcelas.map((parcela) => ({
+      ...parcela,
+      parcela_adiantamento: "S",
+      categoria_adiantamento: String(adiantamento.categoriaCodigo),
+      conta_corrente_adiantamento: Number(adiantamento.contaCorrenteCodigo),
+    }));
+  }
+  return update;
 }
 
-async function atualizarEtapa(base, accessContext, os, etapa, observacao, options) {
+async function atualizarEtapa(base, accessContext, os, etapa, observacao, options = {}) {
   const current = os?.Cabecalho ? os : await consultarOs(base, accessContext, os, options);
-  return call(base, accessContext, "servicos/os/", "AlterarOS", buildStageUpdate(current, etapa, observacao), options);
+  return call(base, accessContext, "servicos/os/", "AlterarOS", buildStageUpdate(current, etapa, observacao, options.adiantamento), options);
 }
 
 module.exports = {

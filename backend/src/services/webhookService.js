@@ -5,6 +5,7 @@ const { resolveBaseByWebhookToken } = require("./baseCredentials");
 const { hash, safeEqual } = require("./security");
 const integrationTickets = require("./integrationTickets");
 const gateway = require("./integrations/omieGateway");
+const workflow = require("./invoiceWorkflow");
 
 function Model(name) {
   return registry.getModel(name).mongooseModel;
@@ -308,6 +309,12 @@ async function receiveWebhook(token, payload) {
           });
         }
         results.push({ id: String(result.process._id), duplicate: result.duplicate, archived: result.archived });
+        if (!result.duplicate) {
+          setImmediate(() => workflow.runConfiguredAutomations(
+            result.process._id,
+            workflow.internalAccess(base.tenantId),
+          ).catch((error) => console.error("Falha na automação do processo", String(error?.message || error))));
+        }
       }
       response = {
         accepted: true,

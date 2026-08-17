@@ -12,6 +12,9 @@ defineTenantModel({
     etapaEnvio: fields.string({ required: true, label: "Etapa de envio", searchable: true }),
     etapaErro: fields.string({ required: true, label: "Etapa de erro", searchable: true }),
     etapaSucesso: fields.string({ required: true, label: "Etapa de sucesso", searchable: true }),
+    gerarAdiantamento: fields.boolean({ label: "Gerar adiantamento no Omie", default: false }),
+    contaCorrenteAdiantamentoId: fields.ref("ContaCorrenteOmie", { label: "Conta corrente do adiantamento" }),
+    categoriaAdiantamentoId: fields.ref("CategoriaOmie", { label: "Categoria padrão do adiantamento" }),
     status: businessStatus(),
   },
   crud: {

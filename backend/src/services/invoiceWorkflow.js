@@ -3,7 +3,7 @@
 const { GenericError, registry, scopedIdFilter } = require("@oondemand/oon-core-back");
 const { collectOmieAttachments } = require("./attachments");
 const { findScopedBase } = require("./baseCredentials");
-const { getConfiguration, resolvedConfigurations } = require("./configuration");
+const { automationSettings, getConfiguration, resolvedConfigurations } = require("./configuration");
 const { sendEmail } = require("./emailSender");
 const { credentials: sendgridCredentials } = require("./sendgridCredentials");
 const gateway = require("./integrations/omieGateway");
@@ -318,7 +318,16 @@ async function finalizeOmieStatus(process, actor, adapters = {}) {
   const variables = process.variaveisSnapshot || {};
   const sentAt = process.emailEnviadoEm ? new Date(process.emailEnviadoEm) : new Date();
   const note = `Invoice enviada em ${sentAt.toLocaleString("pt-BR")} para ${(process.destinatarios || []).join(", ")}.`;
-  await (adapters.gateway || gateway).atualizarEtapa(base, accessContext, process.codigoOs, mapping.etapaSucesso, note, adapters);
+  let adiantamento;
+  if (mapping.gerarAdiantamento) {
+    const [account, category] = await Promise.all([
+      Model("ContaCorrenteOmie").findOne({ _id: mapping.contaCorrenteAdiantamentoId, tenantId: process.tenantId, baseOmieId: process.baseOmieId, status: "ativo" }),
+      Model("CategoriaOmie").findOne({ _id: mapping.categoriaAdiantamentoId, tenantId: process.tenantId, baseOmieId: process.baseOmieId, status: "ativo" }),
+    ]);
+    if (!account || !category) throw new GenericError("Configuração de adiantamento inválida para a Base Omie do processo.", { statusCode: 422, code: "OMIE_ADVANCE_CONFIGURATION_REQUIRED" });
+    adiantamento = { enabled: true, contaCorrenteCodigo: account.codigo, categoriaCodigo: category.codigo };
+  }
+  await (adapters.gateway || gateway).atualizarEtapa(base, accessContext, process.codigoOs, mapping.etapaSucesso, note, { ...adapters, adiantamento });
   const completedAt = new Date();
   await Model("ProcessoFatura").updateOne({ _id: process._id, tenantId: process.tenantId }, {
     $set: { etapa: "Concluido", status: "concluido", statusOmieAtualizadoEm: completedAt, concluidoEm: completedAt },
@@ -478,6 +487,52 @@ async function retry(id, accessContext, actor, adapters = {}) {
       throw error;
     }
   });
+}
+
+async function runConfiguredAutomations(id, accessContext, adapters = {}) {
+  const maxAutomaticRetries = Math.max(1, Number(process.env.AUTOMATIC_RETRY_MAX_ATTEMPTS || 3));
+  for (let transitions = 0; transitions < 12; transitions += 1) {
+    const invoiceProcess = await loadProcess(id, accessContext);
+    const settings = await automationSettings(invoiceProcess.tenantId, invoiceProcess.baseOmieId);
+    const actor = { userId: "automacao-configurada" };
+    try {
+      if (invoiceProcess.etapa === "Aprovar processamento" && settings["automacao-aprovacao-automatica"]) {
+        await approveProcessing(id, accessContext, actor, adapters);
+        continue;
+      }
+      if (invoiceProcess.etapa === "Aprovar fatura" && settings["automacao-revisao-automatica"]) {
+        await approveInvoice(id, accessContext, actor, adapters);
+        continue;
+      }
+      if (invoiceProcess.etapa === "Enviar e-mail" && settings["automacao-envio-automatico"]) {
+        await send(id, accessContext, actor, adapters);
+        continue;
+      }
+      if (invoiceProcess.etapa === "Falha" && settings["automacao-reprocessar-falha"]) {
+        const attempts = await Model("EventoProcesso").countDocuments({
+          tenantId: invoiceProcess.tenantId,
+          processoId: invoiceProcess._id,
+          etapa: "Reprocessamento automático",
+          resultado: "iniciado",
+        });
+        if (attempts >= maxAutomaticRetries) return invoiceProcess;
+        await recordEvent(invoiceProcess, {
+          stage: "Reprocessamento automático",
+          result: "iniciado",
+          userId: actor.userId,
+          attempt: attempts + 1,
+          message: `Retentativa automática ${attempts + 1} de ${maxAutomaticRetries}.`,
+        });
+        await retry(id, accessContext, actor, adapters);
+        continue;
+      }
+      return invoiceProcess;
+    } catch (error) {
+      const current = await loadProcess(id, accessContext);
+      if (current.etapa !== "Falha" || !settings["automacao-reprocessar-falha"]) throw error;
+    }
+  }
+  return loadProcess(id, accessContext);
 }
 
 function omieStage(os) {
@@ -696,6 +751,7 @@ module.exports = {
   reject,
   reprocess,
   retry,
+  runConfiguredAutomations,
   send,
   sendInvoice,
 };
