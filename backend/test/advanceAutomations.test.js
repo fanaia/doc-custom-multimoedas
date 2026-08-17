@@ -75,6 +75,9 @@ test("ticket prepara snapshot completo uma vez e as automações reutilizam as c
   const workflow = read("src/services/invoiceWorkflow.js");
   const variables = read("src/services/invoiceVariables.js");
   assert.match(webhook, /workflow\.prepareInvoiceSnapshot\(process/);
+  assert.match(webhook, /if \(!hasPreparedSnapshot\(existing\)\)/);
+  assert.match(webhook, /return \{ process: existing, duplicate: !recovered, archived \}/);
+  assert.match(webhook, /throw error;/);
   assert.doesNotMatch(webhook, /gateway\.consultar(?:Os|Cliente|Pais)/);
   assert.match(workflow, /async function prepareInvoiceSnapshot/);
   assert.match(workflow, /const canReuseSnapshot = Boolean/);
