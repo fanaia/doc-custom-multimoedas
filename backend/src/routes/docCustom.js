@@ -323,6 +323,18 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.post("/processos/:id/enviar", { permission: "process.send", audit: processAudit("email-enviado") }, async (req, res) => {
     res.json({ processo: await workflow.send(req.params.id, req.accessContext, actor(req)) });
   });
+  router.private.post("/processos/:id/arquivar", { permission: "process.approve", audit: processAudit("arquivado") }, async (req, res) => {
+    const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
+    if (invoiceProcess.emailEnviadoEm || invoiceProcess.status === "concluido") {
+      throw new GenericError("Faturas já enviadas ou concluídas não podem ser arquivadas.", { statusCode: 409 });
+    }
+    const now = new Date();
+    await Model("ProcessoFatura").updateOne(
+      { _id: invoiceProcess._id, tenantId: req.accessContext.tenantId },
+      { $set: { etapa: "Arquivado", status: "arquivado", concluidoEm: now, alerta: "Arquivado manualmente." } },
+    );
+    res.json({ processo: await workflow.loadProcess(req.params.id, req.accessContext) });
+  });
   router.private.post("/processos/:id/tentar-novamente", { permission: "process.retry", audit: processAudit("retentativa") }, async (req, res) => {
     res.json({ processo: await workflow.retry(req.params.id, req.accessContext, actor(req)) });
   });
@@ -363,7 +375,8 @@ defineRoutes("/api/doc-custom", (router) => {
     const services = (Array.isArray(os.ServicosPrestados) ? os.ServicosPrestados : []).map((item, index) => {
       const quantity = Number(item.nQtde || item.nQuantidade || item.quantidade || 1);
       const unitValue = Number(item.nValUnit || item.nValorUnitario || item.nValorUnit || item.valorUnitario || 0);
-      const totalValue = Number(item.nValorTotal || item.nValorServico || item.valorTotal || (quantity * unitValue));
+      const explicitTotal = Number(item.nValTot ?? item.nValorTotal ?? item.nValorServico ?? item.valorTotal);
+      const totalValue = Number.isFinite(explicitTotal) ? explicitTotal : quantity * unitValue;
       return {
         id: item.nCodServico || item.cCodServ || item.codigo || index + 1,
         code: item.cCodServ || item.nCodServico || item.codigo || "",
@@ -374,7 +387,8 @@ defineRoutes("/api/doc-custom", (router) => {
       };
     });
     const serviceTotal = services.reduce((sum, item) => sum + item.totalValue, 0);
-    const total = Number(os?.Cabecalho?.nValorTotal || os?.Cabecalho?.nValorOS || os.nValorTotal || serviceTotal);
+    const rawTotal = Number(os?.Cabecalho?.nValorTotal ?? os?.Cabecalho?.nValorOS ?? os.nValorTotal);
+    const total = Number.isFinite(rawTotal) ? rawTotal : Number(invoiceProcess.valorFatura || serviceTotal);
     res.json({
       operation: {
         supplierName: customer.razao_social || customer.nome_fantasia || customer.nome || invoiceProcess.clienteNome || "Não informado",
@@ -387,6 +401,7 @@ defineRoutes("/api/doc-custom", (router) => {
         currency: getConfiguration(configurations, "moeda-fatura") || getConfiguration(configurations, "moeda-padrao") || "BRL",
         total,
         services,
+        serviceCount: Number(invoiceProcess.quantidadeServicos || services.length),
       },
       recipients,
       recipientsConfigured: Boolean(configuredRecipients.configured),
