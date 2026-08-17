@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildStageUpdate } = require("../src/services/integrations/omieGateway");
+const { buildStageUpdate, retryDelayMs } = require("../src/services/integrations/omieGateway");
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
@@ -50,4 +50,14 @@ test("configurações possuem abas e quatro automações auditáveis", () => {
   assert.match(workflow, /runConfiguredAutomations/);
   assert.match(workflow, /AUTOMATIC_RETRY_MAX_ATTEMPTS/);
   assert.match(webhook, /setImmediate\(\(\) => workflow\.runConfiguredAutomations/);
+});
+
+
+test("redundância do Omie respeita o tempo solicitado sem consultas imediatas", () => {
+  assert.equal(retryDelayMs(new Error("Consumo redundante detectado. Aguarde 49 segundos para tentar novamente (REDUNDANT).")), 49_000);
+  assert.equal(retryDelayMs(new Error("Falha funcional")), 0);
+  const workflow = read("src/services/invoiceWorkflow.js");
+  assert.match(workflow, /const osForUpdate = variables\.os\?\.Cabecalho \? variables\.os : process\.codigoOs/);
+  assert.match(workflow, /if \(retryAfterMs\) await \(adapters\.wait \|\| wait\)\(retryAfterMs\)/);
+  assert.match(workflow, /a OS não será movida para erro durante esse intervalo/);
 });
