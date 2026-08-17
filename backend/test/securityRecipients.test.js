@@ -49,4 +49,10 @@ test("cópias internas são obrigatoriamente mescladas sem duplicar destinatári
   assert.deepEqual(result.cc, ["financeiro@empresa.com", "interno@empresa.com"]);
   assert.deepEqual(result.bcc, []);
   assert.deepEqual(result.invalid, []);
+
+  const invalid = withInternalCopies(
+    normalizeRecipients({ to: ["cliente@empresa.com", "endereco-invalido"] }),
+    ["interno@empresa.com"],
+  );
+  assert.deepEqual(invalid.invalid, ["endereco-invalido"]);
 });
