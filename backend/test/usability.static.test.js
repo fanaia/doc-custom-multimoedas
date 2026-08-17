@@ -134,3 +134,23 @@ test("PDF da fatura usa rota compatível com ingress e visualizador autenticado 
   assert.match(frontend, /Reduzir zoom/);
   assert.match(frontend, /Aumentar zoom/);
 });
+
+
+test("modal da esteira prioriza a decisão e confirma destinatários antes do envio", () => {
+  const routes = read("src/routes/docCustom.js");
+  const workflow = read("src/services/invoiceWorkflow.js");
+  const model = read("src/models/ProcessoFatura.js");
+  const ui = read("../frontend/central.ui.json");
+  const frontend = read("../frontend/src/main.tsx");
+  assert.match(model, /destinatariosEnvio/);
+  assert.match(routes, /processos\/:id\/envio\/destinatarios/);
+  assert.match(routes, /supplierName/);
+  assert.match(routes, /ServicosPrestados/);
+  assert.match(workflow, /configuredRecipients\.configured/);
+  assert.match(ui, /"defaultTab": "decisao"/);
+  assert.match(ui, /"component": "InvoiceDecisionPanel"/);
+  assert.doesNotMatch(ui, /"id": "enviar"/);
+  assert.match(frontend, /Quem receberá a fatura/);
+  assert.match(frontend, /Confirmar e enviar fatura/);
+  assert.match(frontend, /Serviços faturados/);
+});

@@ -306,19 +306,30 @@ defineRoutes("/api/doc-custom", (router) => {
   });
   router.private.get("/processos/:id/pdf", { permission: "process.read" }, handleProcessPdf);
   router.private.get("/processos/:id/envio", { permission: "process.read" }, async (req, res) => {
-    const process = await workflow.loadProcess(req.params.id, req.accessContext);
-    const variables = process.variaveisSnapshot || {};
+    const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
+    const variables = invoiceProcess.variaveisSnapshot || {};
     const configurations = variables.configuracoes || [];
-    const recipients = normalizeRecipients({
+    const configuredRecipients = invoiceProcess.destinatariosEnvio || {};
+    const recipients = normalizeRecipients(configuredRecipients.configured ? {
+      to: configuredRecipients.to,
+      cc: configuredRecipients.cc,
+      bcc: configuredRecipients.bcc,
+    } : {
       to: [variables.cliente?.email, variables.os?.Email?.cEnviarPara],
       cc: [getConfiguration(configurations, "email-cc"), getConfiguration(configurations, "email-copia")],
       bcc: getConfiguration(configurations, "email-bcc"),
     });
-    const artifact = process.artefatoPdfId
-      ? await Model("ArtefatoPdf").findOne({ _id: process.artefatoPdfId, tenantId: req.accessContext.tenantId }).lean()
+    const artifact = invoiceProcess.artefatoPdfId
+      ? await Model("ArtefatoPdf").findOne({ _id: invoiceProcess.artefatoPdfId, tenantId: req.accessContext.tenantId }).lean()
       : null;
-    const base = await findScopedBase(process.baseOmieId, req.accessContext, { secrets: true });
-    const listed = await gateway.listarAnexos(base, req.accessContext, process.codigoOs);
+    const base = await findScopedBase(invoiceProcess.baseOmieId, req.accessContext, { secrets: true });
+    let listed = {};
+    let attachmentsWarning = "";
+    try {
+      listed = await gateway.listarAnexos(base, req.accessContext, invoiceProcess.codigoOs);
+    } catch (error) {
+      attachmentsWarning = errorSummary(error).message;
+    }
     const invoice = artifact ? { filename: artifact.nomeArquivo, hash: artifact.hash, size: artifact.tamanho, source: "invoice" } : null;
     const attachments = (listed?.listaAnexos || [])
       .filter((item) => item.cNomeArquivo !== artifact?.nomeArquivo)
@@ -328,7 +339,77 @@ defineRoutes("/api/doc-custom", (router) => {
         size: item.nTamanho || item.nTamanhoArquivo || null,
         source: "omie",
       }));
-    res.json({ recipients, invoice, attachments: [...(invoice ? [invoice] : []), ...attachments] });
+    const os = variables.os || {};
+    const customer = variables.cliente || {};
+    const services = (Array.isArray(os.ServicosPrestados) ? os.ServicosPrestados : []).map((item, index) => {
+      const quantity = Number(item.nQtde || item.nQuantidade || item.quantidade || 1);
+      const unitValue = Number(item.nValUnit || item.nValorUnitario || item.nValorUnit || item.valorUnitario || 0);
+      const totalValue = Number(item.nValorTotal || item.nValorServico || item.valorTotal || (quantity * unitValue));
+      return {
+        id: item.nCodServico || item.cCodServ || item.codigo || index + 1,
+        code: item.cCodServ || item.nCodServico || item.codigo || "",
+        description: item.cDescServ || item.cDescricao || item.descricao || item.cCodServ || `Serviço ${index + 1}`,
+        quantity,
+        unitValue,
+        totalValue,
+      };
+    });
+    const serviceTotal = services.reduce((sum, item) => sum + item.totalValue, 0);
+    const total = Number(os?.Cabecalho?.nValorTotal || os?.Cabecalho?.nValorOS || os.nValorTotal || serviceTotal);
+    res.json({
+      operation: {
+        supplierName: customer.razao_social || customer.nome_fantasia || customer.nome || invoiceProcess.clienteNome || "Não informado",
+        document: customer.cnpj_cpf || customer.cnpj || customer.cpf || "",
+        orderNumber: invoiceProcess.numeroOs,
+        orderCode: invoiceProcess.codigoOs,
+        baseName: base.nome,
+        stage: invoiceProcess.etapa,
+        status: invoiceProcess.status,
+        currency: getConfiguration(configurations, "moeda-fatura") || getConfiguration(configurations, "moeda-padrao") || "BRL",
+        total,
+        services,
+      },
+      recipients,
+      recipientsConfigured: Boolean(configuredRecipients.configured),
+      recipientsUpdatedAt: configuredRecipients.updatedAt || null,
+      invoice,
+      attachments: [...(invoice ? [invoice] : []), ...attachments],
+      attachmentsWarning,
+    });
+  });
+
+  router.private.put("/processos/:id/envio/destinatarios", { permission: "process.send", audit: processAudit("destinatarios-atualizados") }, async (req, res) => {
+    const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
+    if (invoiceProcess.etapa !== "Enviar e-mail" || invoiceProcess.emailProviderId) {
+      throw new GenericError("Os destinatários só podem ser alterados antes da confirmação do envio.", { statusCode: 409 });
+    }
+    const recipients = normalizeRecipients(req.body || {});
+    if (recipients.invalid.length) {
+      throw new GenericError(`E-mails inválidos: ${recipients.invalid.join(", ")}.`, {
+        statusCode: 422,
+        code: "EMAIL_RECIPIENT_INVALID",
+      });
+    }
+    if (!recipients.to.length) {
+      throw new GenericError("Informe ao menos um destinatário principal.", {
+        statusCode: 422,
+        code: "EMAIL_RECIPIENT_REQUIRED",
+      });
+    }
+    const updatedAt = new Date();
+    const result = await Model("ProcessoFatura").updateOne(
+      {
+        _id: invoiceProcess._id,
+        tenantId: req.accessContext.tenantId,
+        etapa: "Enviar e-mail",
+        emailProviderId: { $in: [null, ""] },
+      },
+      { $set: { destinatariosEnvio: { configured: true, ...recipients, updatedAt, updatedBy: actor(req).userId } } },
+    );
+    if (!result.modifiedCount) {
+      throw new GenericError("O processo foi atualizado por outra operação. Reabra a fatura antes de continuar.", { statusCode: 409 });
+    }
+    res.json({ message: "Destinatários atualizados. Estes endereços serão usados no envio.", recipients, updatedAt });
   });
 
   router.private.post("/gatilhos/:id/preview", { permission: "templates.manage", audit: { entidade: "Template", acao: "preview" } }, async (req, res) => {

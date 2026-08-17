@@ -322,7 +322,12 @@ async function sendInvoice(process, actor, adapters = {}) {
     if (!artifact) throw new GenericError("PDF aprovado nao encontrado.", { statusCode: 422 });
     const variables = current.variaveisSnapshot || {};
     const configurations = variables.configuracoes || [];
-    const recipients = normalizeRecipients({
+    const configuredRecipients = current.destinatariosEnvio || {};
+    const recipients = normalizeRecipients(configuredRecipients.configured ? {
+      to: configuredRecipients.to,
+      cc: configuredRecipients.cc,
+      bcc: configuredRecipients.bcc,
+    } : {
       to: [variables.cliente?.email, variables.os?.Email?.cEnviarPara],
       cc: [getConfiguration(configurations, "email-cc"), getConfiguration(configurations, "email-copia")],
       bcc: getConfiguration(configurations, "email-bcc"),
