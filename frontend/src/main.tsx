@@ -152,7 +152,7 @@ function ConfiguracoesPage(){
   const remove=useMutation({mutationFn:async(id:string)=>(await http.delete(`/api/doc-custom/configuracoes/${id}`)).data,onSuccess:()=>finish("Configuração excluída com sucesso."),onError:e=>setError(errorText(e))});
   const saveInternal=useMutation({mutationFn:async()=>(await http.put("/api/doc-custom/configuracoes/destinatarios-internos",{emails:internalEmails})).data,onSuccess:data=>{setError("");setMessage(data.message);cache.invalidateQueries({queryKey:["doc-custom-catalogs"]});},onError:e=>{setMessage("");setError(errorText(e));}});
   function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();save.mutate({id:editing?._id,payload:Object.fromEntries(new FormData(event.currentTarget))});}
-  const rows=(query.data?.configuracoes||[]).filter(c=>!baseFilter||String(c.baseOmieId?._id||c.baseOmieId||"")===baseFilter);
+  const rows=(query.data?.configuracoes||[]).filter(c=>c.codigo!=="email-destinatarios-internos"&&(!baseFilter||String(c.baseOmieId?._id||c.baseOmieId||"")===baseFilter));
   return <div><Header title="Configurações" description="Defina os parâmetros usados na geração e no envio das faturas."/><Notice message={message} error={error}/>
   <section style={{...card,borderColor:"#7dd3fc",background:"linear-gradient(135deg,#f0f9ff,#fff)",marginBottom:14}}>
     <h2 style={{margin:"0 0 5px"}}>Cópias internas das faturas</h2>
