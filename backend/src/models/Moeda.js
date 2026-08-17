@@ -10,7 +10,7 @@ defineTenantModel({
     codigo: fields.currencyCode({ required: true, label: "Codigo ISO" }),
     simbolo: fields.string({ required: true, label: "Simbolo", searchable: true }),
     fonte: fields.enum(["bacen", "fixa"], { label: "Fonte", default: "bacen" }),
-    valorFixo: fields.number({ label: "Valor fixo" }),
+    valorFixo: fields.number({ label: "Valor fixo (quando a fonte for fixa)" }),
     valorContingencia: fields.number({ label: "Valor de contingencia" }),
     ultimoValorValido: fields.number({ label: "Ultima cotacao valida" }),
     ultimaReferenciaEm: fields.date({ label: "Data de referencia" }),
