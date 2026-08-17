@@ -426,7 +426,7 @@ defineRoutes("/api/doc-custom", (router) => {
     });
   });
 
-  router.private.put("/processos/:id/envio/destinatarios", { permission: "process.send", audit: processAudit("destinatarios-atualizados") }, async (req, res) => {
+  router.private.put("/processos/:id/envio/destinatarios", { permission: "process.recipients", audit: processAudit("destinatarios-atualizados") }, async (req, res) => {
     const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
     if (!["Aprovar processamento", "Aprovar fatura", "Enviar e-mail"].includes(invoiceProcess.etapa) || invoiceProcess.emailProviderId) {
       throw new GenericError("Os destinatários só podem ser alterados antes da confirmação do envio.", { statusCode: 409 });
@@ -483,7 +483,7 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json({ message: "Template atualizado com sucesso.", template });
   });
   router.private.delete("/templates/:id", { permission: "templates.manage", audit: { entidade: "Template", acao: "excluido" } }, async (req, res) => {
-    const template = await Model("Template").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId });
+    const template = await Model("Template").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $ne: "email-destinatarios-internos" } });
     if (!template) throw new GenericError("Template nao encontrado.", { statusCode: 404 });
     res.json({ message: "Template excluido com sucesso." });
   });
@@ -574,13 +574,17 @@ defineRoutes("/api/doc-custom", (router) => {
   });
 
   router.private.post("/configuracoes", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "criada" } }, async (req, res) => {
-    const input = { ...(req.body || {}) }; if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else delete input.baseOmieId;
+    const input = { ...(req.body || {}) };
+    if (String(input.codigo || "") === "email-destinatarios-internos") {
+      throw new GenericError("Use a seção Cópias internas das faturas para alterar esta configuração.", { statusCode: 409 });
+    }
+    if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else delete input.baseOmieId;
     const configuracao = await Model("Configuracao").create({ tenantId: req.accessContext.tenantId, ...input });
     res.status(201).json({ configuracao });
   });
   router.private.put("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "atualizada" } }, async (req, res) => {
     const input = { ...(req.body || {}) }; if (input.baseOmieId) await findScopedBase(input.baseOmieId, req.accessContext); else input.baseOmieId = null;
-    const configuracao = await Model("Configuracao").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId }, { $set: input }, { new: true, runValidators: true });
+    const configuracao = await Model("Configuracao").findOneAndUpdate({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $ne: "email-destinatarios-internos" } }, { $set: input }, { new: true, runValidators: true });
     if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ configuracao });
   });
   router.private.delete("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "excluida" } }, async (req, res) => {
