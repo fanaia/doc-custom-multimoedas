@@ -51,6 +51,7 @@ defineTenantModel({
     emailEnviadoEm: fields.date({ label: "E-mail enviado em" }),
     statusOmieAtualizadoEm: fields.date({ label: "Status Omie atualizado em" }),
     destinatarios: { type: [String], default: [] },
+    destinatariosEnvio: { type: Object, default: {} },
     anexosEnviados: { type: [Object], default: [] },
     cotacoesUsadas: { type: [Object], default: [] },
     templateSnapshot: { type: Object, default: {} },
