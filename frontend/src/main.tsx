@@ -202,6 +202,18 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
     },
     onError: (requestError) => { setMessage(""); setError(errorText(requestError)); },
   });
+  const send = useMutation({
+    mutationFn: async () => {
+      await http.put(`/api/doc-custom/processos/${encodeURIComponent(processId)}/envio/destinatarios`, { to, cc, bcc });
+      return (await http.post(`/api/doc-custom/processos/${encodeURIComponent(processId)}/enviar`)).data;
+    },
+    onSuccess: async () => {
+      setError(""); setMessage("Fatura enviada e processo atualizado com sucesso.");
+      await query.refetch();
+      cache.invalidateQueries();
+    },
+    onError: (requestError) => { setMessage(""); setError(errorText(requestError)); },
+  });
   if (query.isLoading) return <div style={{...card,color:"#64748b"}}>Carregando informações para decisão...</div>;
   if (query.error) return <Notice error={errorText(query.error)}/>;
   const data = query.data || {};
@@ -236,7 +248,7 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
         {recipientField("Cc", "Destinatários que receberão uma cópia visível.", cc, setCc)}
         {recipientField("Cco", "Destinatários que receberão uma cópia oculta.", bcc, setBcc)}
       </div>
-      {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><button type="button" style={button} disabled={save.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":"Salvar destinatários"}</button></div>}
+      {canEdit&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginTop:14,flexWrap:"wrap"}}><small style={{color:"#64748b"}}>{data.recipientsConfigured?"Lista revisada manualmente.":"Lista sugerida a partir do Omie e das configurações."}</small><div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button type="button" style={secondary} disabled={save.isPending||send.isPending||!to.trim()} onClick={()=>save.mutate()}>{save.isPending?"Salvando...":"Salvar para depois"}</button><button type="button" style={button} disabled={send.isPending||save.isPending||!to.trim()} onClick={()=>confirm("Confirmar o envio da fatura para os destinatários informados?")&&send.mutate()}>{send.isPending?"Enviando...":"Confirmar e enviar fatura"}</button></div></div>}
     </section>
 
     <section style={card}>
@@ -246,7 +258,6 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
     </section>
   </div>;
 }
-
 
 function ProcessPdfViewer({ parent, record }: { parent?: Item; record?: Item }) {
   const { http } = useOonApi();
