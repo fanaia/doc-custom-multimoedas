@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildStageUpdate, omieDueDateD1, retryDelayMs } = require("../src/services/integrations/omieGateway");
+const { advanceDueDate, buildStageUpdate, omieDueDateD1, retryDelayMs } = require("../src/services/integrations/omieGateway");
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
@@ -28,6 +28,14 @@ test("monta alteração da OS com adiantamento conforme contrato legado do Omie"
 
 test("calcula D+1 no fuso de São Paulo inclusive na virada do mês", () => {
   assert.equal(omieDueDateD1(new Date("2026-08-31T23:30:00-03:00")), "01/09/2026");
+});
+
+test("preserva vencimento igual ou posterior a D+1 e corrige data anterior ou inválida", () => {
+  const reference = new Date("2026-08-17T15:00:00-03:00");
+  assert.equal(advanceDueDate("18/08/2026", reference), "18/08/2026");
+  assert.equal(advanceDueDate("20/08/2026", reference), "20/08/2026");
+  assert.equal(advanceDueDate("17/08/2026", reference), "18/08/2026");
+  assert.equal(advanceDueDate("data-inválida", reference), "18/08/2026");
 });
 
 test("adiantamento exige parcelas na OS", () => {
@@ -61,6 +69,19 @@ test("configurações possuem abas e quatro automações auditáveis", () => {
   assert.match(webhook, /setImmediate\(\(\) => workflow\.runConfiguredAutomations/);
 });
 
+
+test("ticket prepara snapshot completo uma vez e as automações reutilizam as configurações", () => {
+  const webhook = read("src/services/webhookService.js");
+  const workflow = read("src/services/invoiceWorkflow.js");
+  const variables = read("src/services/invoiceVariables.js");
+  assert.match(webhook, /workflow\.prepareInvoiceSnapshot\(process/);
+  assert.doesNotMatch(webhook, /gateway\.consultar(?:Os|Cliente|Pais)/);
+  assert.match(workflow, /async function prepareInvoiceSnapshot/);
+  assert.match(workflow, /const canReuseSnapshot = Boolean/);
+  assert.match(workflow, /automationSettingsFromConfigurations\(invoiceProcess\.variaveisSnapshot\.configuracoes\)/);
+  assert.match(workflow, /getConfiguration\(configurations, "email-destinatarios-internos"/);
+  assert.match(variables, /processoId: adapters\.processoId \|\| processoId/);
+});
 
 test("redundância do Omie respeita o tempo solicitado sem consultas imediatas", () => {
   assert.equal(retryDelayMs(new Error("Consumo redundante detectado. Aguarde 49 segundos para tentar novamente (REDUNDANT).")), 49_000);
