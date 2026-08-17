@@ -483,7 +483,7 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json({ message: "Template atualizado com sucesso.", template });
   });
   router.private.delete("/templates/:id", { permission: "templates.manage", audit: { entidade: "Template", acao: "excluido" } }, async (req, res) => {
-    const template = await Model("Template").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $ne: "email-destinatarios-internos" } });
+    const template = await Model("Template").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId });
     if (!template) throw new GenericError("Template nao encontrado.", { statusCode: 404 });
     res.json({ message: "Template excluido com sucesso." });
   });
@@ -588,7 +588,7 @@ defineRoutes("/api/doc-custom", (router) => {
     if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ configuracao });
   });
   router.private.delete("/configuracoes/:id", { permission: "settings.manage", audit: { entidade: "Configuracao", acao: "excluida" } }, async (req, res) => {
-    const configuracao = await Model("Configuracao").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId });
+    const configuracao = await Model("Configuracao").findOneAndDelete({ _id: req.params.id, tenantId: req.accessContext.tenantId, codigo: { $ne: "email-destinatarios-internos" } });
     if (!configuracao) throw new GenericError("Configuracao nao encontrada.", { statusCode: 404 }); res.json({ message: "Configuracao excluida." });
   });
   router.private.post("/templates/obrigatorio/importar", { permission: "templates.manage", audit: { entidade: "Template", acao: "template-obrigatorio-importado" } }, async (req, res) => {
