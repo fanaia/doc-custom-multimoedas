@@ -90,6 +90,12 @@ test("SendGrid e webhook unico usam credenciais isoladas por tenant", () => {
   assert.match(webhookService, /message: "Tópico ignorado\."/);
   assert.match(webhookService, /integrationTickets\.success\(ticket, \{ resposta: response, codigoExterno: normalized\.eventId, mensagem: response\.message \}\)/);
   assert.match(frontend, /Não é necessário cadastrar inclusão, exclusão ou faturamento/);
+  assert.match(routes, /integracoes\/sendgrid\/enviar-teste/);
+  assert.match(routes, /sendEmail\(\{/);
+  assert.match(routes, /tenantId \}/);
+  assert.match(routes, /Informe um único e-mail destinatário válido/);
+  assert.match(frontend, /Destinatário do e-mail de teste/);
+  assert.match(frontend, /Enviar e-mail de teste/);
 });
 
 test("bases sincronizam etapas categorias e contas correntes por tenant", () => {
