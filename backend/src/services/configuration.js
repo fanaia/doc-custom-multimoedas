@@ -42,9 +42,15 @@ async function resolvedConfigurations(tenantId, baseOmieId) {
   }));
 }
 
+function automationSettingsFromConfigurations(configurations = []) {
+  return Object.fromEntries(AUTOMATION_DEFINITIONS.map(({ code }) => [
+    code,
+    Boolean(getConfiguration(configurations, code, false)),
+  ]));
+}
+
 async function automationSettings(tenantId, baseOmieId) {
-  const configurations = await resolvedConfigurations(tenantId, baseOmieId);
-  return Object.fromEntries(AUTOMATION_DEFINITIONS.map(({ code }) => [code, Boolean(getConfiguration(configurations, code, false))]));
+  return automationSettingsFromConfigurations(await resolvedConfigurations(tenantId, baseOmieId));
 }
 
 function getConfiguration(configurations, code, fallback = undefined) {
@@ -52,4 +58,4 @@ function getConfiguration(configurations, code, fallback = undefined) {
   return item ? (item.valorTipado ?? parseValue(item)) : fallback;
 }
 
-module.exports = { AUTOMATION_CODES, AUTOMATION_DEFINITIONS, automationSettings, getConfiguration, parseValue, resolvedConfigurations };
+module.exports = { AUTOMATION_CODES, AUTOMATION_DEFINITIONS, automationSettings, automationSettingsFromConfigurations, getConfiguration, parseValue, resolvedConfigurations };
