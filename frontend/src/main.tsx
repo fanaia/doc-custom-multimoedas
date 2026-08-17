@@ -145,7 +145,7 @@ function GatilhosPage() {
 
 function ConfiguracoesPage(){
   const {http}=useOonApi();const query=useCatalogs();const cache=useQueryClient();const [baseFilter,setBaseFilter]=useState("");const [editing,setEditing]=useState<Item|null>();const [message,setMessage]=useState("");const [error,setError]=useState("");const [internalEmails,setInternalEmails]=useState("");
-  const internalConfig=(query.data?.configuracoes||[]).find(item=>item.codigo==="email-destinatarios-internos"&&!item.baseOmieId);
+  const internalConfig=(query.data?.configuracoes||[]).filter(item=>item.codigo==="email-destinatarios-internos"&&!item.baseOmieId)[0];
   useEffect(()=>{setInternalEmails(String(internalConfig?.valor||""));},[internalConfig?._id,internalConfig?.valor]);
   const finish=(text:string)=>{setMessage(text);setError("");setEditing(undefined);cache.invalidateQueries({queryKey:["doc-custom-catalogs"]});};
   const save=useMutation({mutationFn:async({id,payload}:any)=>id?(await http.put(`/api/doc-custom/configuracoes/${id}`,payload)).data:(await http.post("/api/doc-custom/configuracoes",payload)).data,onSuccess:()=>finish("Configuração salva com sucesso."),onError:e=>setError(errorText(e))});
