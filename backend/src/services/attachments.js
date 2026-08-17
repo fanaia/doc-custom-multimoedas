@@ -11,8 +11,10 @@ async function collectOmieAttachments({ base, accessContext, os, generated, adap
   const maxBytes = Number(process.env.EMAIL_MAX_TOTAL_BYTES || 20 * 1024 * 1024);
   let total = generated.buffer.length;
   for (const item of listed?.listaAnexos || []) {
+    const listedFilename = String(item?.cNomeArquivo || "");
+    if (listedFilename === generated.filename) continue;
     const metadata = await omie.obterAnexo(base, accessContext, item, adapters);
-    const filename = String(metadata?.cNomeArquivo || item?.cNomeArquivo || `anexo-${item.nIdAnexo}`);
+    const filename = String(metadata?.cNomeArquivo || listedFilename || `anexo-${item.nIdAnexo}`);
     if (filename === generated.filename) continue;
     if (!metadata?.cLinkDownload) throw new GenericError(`Anexo ${filename} sem link de download.`, { statusCode: 422 });
     const buffer = await omie.downloadAttachment(metadata.cLinkDownload, adapters);

@@ -253,8 +253,8 @@ function InvoiceDecisionPanel({ parent, record }: { parent?: Item; record?: Item
 
     <section style={card}>
       <h3 style={{margin:"0 0 4px"}}>Arquivos do envio</h3><p style={{margin:"0 0 10px",color:"#64748b"}}>A fatura e os anexos da OS serão enviados juntos.</p>
-      {data.attachmentsWarning&&<Notice error={`Não foi possível consultar todos os anexos do Omie: ${data.attachmentsWarning}`}/>} 
-      <div style={{display:"grid",gap:8}}>{data.attachments?.map((attachment:any,index:number)=><div key={`${attachment.source}-${attachment.id||attachment.filename}-${index}`} style={{display:"flex",justifyContent:"space-between",gap:12,padding:"10px 12px",background:"#f8fafc",borderRadius:8}}><span>{attachment.source==="invoice"?"Fatura":"Anexo"} · <strong>{attachment.filename}</strong></span><span style={{color:"#64748b"}}>{bytes(attachment.size)}</span></div>)}{!data.attachments?.length&&<span style={{color:"#64748b"}}>Nenhum arquivo disponível.</span>}</div>
+      {data.attachmentsDeferred&&<p role="note" style={{margin:"0 0 10px",padding:"10px 12px",color:"#475569",background:"#f0f9ff",borderRadius:8}}>Os anexos existentes na OS serão consultados no Omie somente ao confirmar o envio, evitando consumo redundante da API.</p>}
+      <div style={{display:"grid",gap:8}}>{data.attachments?.map((attachment:any,index:number)=><div key={`${attachment.source}-${attachment.id||attachment.filename}-${index}`} style={{display:"flex",justifyContent:"space-between",gap:12,padding:"10px 12px",background:"#f8fafc",borderRadius:8}}><span>{attachment.source==="invoice"?"Fatura":attachment.source==="sent"?"Anexo enviado":"Anexo"} · <strong>{attachment.filename}</strong></span><span style={{color:"#64748b"}}>{bytes(attachment.size)}</span></div>)}{!data.attachments?.length&&<span style={{color:"#64748b"}}>Nenhum arquivo disponível.</span>}</div>
     </section>
   </div>;
 }

@@ -78,3 +78,20 @@ test("provedor não é chamado quando anexos excedem o limite", async () => {
     else process.env.EMAIL_MAX_TOTAL_BYTES = previous;
   }
 });
+
+
+test("PDF gerado é descartado pela listagem sem chamar ObterAnexo", async () => {
+  let obtained = 0;
+  const generatedBuffer = Buffer.from("invoice");
+  const attachments = await collectOmieAttachments({
+    base: {}, accessContext: {}, os: { Cabecalho: { nCodOS: 1 } },
+    generated: { filename: "invoice.pdf", buffer: generatedBuffer, hash: sha256Buffer(generatedBuffer) },
+    adapters: { gateway: {
+      listarAnexos: async () => ({ listaAnexos: [{ nIdAnexo: 1, cNomeArquivo: "invoice.pdf" }] }),
+      obterAnexo: async () => { obtained += 1; return {}; },
+      downloadAttachment: async () => Buffer.alloc(0),
+    } },
+  });
+  assert.deepEqual(attachments, []);
+  assert.equal(obtained, 0);
+});

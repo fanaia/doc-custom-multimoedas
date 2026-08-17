@@ -154,3 +154,17 @@ test("modal da esteira prioriza a decisão e confirma destinatários antes do en
   assert.match(frontend, /Confirmar e enviar fatura/);
   assert.match(frontend, /Serviços faturados/);
 });
+
+
+test("abertura da decisão não consome a API de anexos do Omie", () => {
+  const routes = read("src/routes/docCustom.js");
+  const frontend = read("../frontend/src/main.tsx");
+  const start = routes.indexOf('router.private.get("/processos/:id/envio"');
+  const end = routes.indexOf('router.private.put("/processos/:id/envio/destinatarios"', start);
+  const decisionRoute = routes.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.doesNotMatch(decisionRoute, /listarAnexos/);
+  assert.match(decisionRoute, /anexosEnviados/);
+  assert.match(decisionRoute, /attachmentsDeferred/);
+  assert.match(frontend, /somente ao confirmar o envio, evitando consumo redundante/);
+});
