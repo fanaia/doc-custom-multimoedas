@@ -542,6 +542,8 @@ async function archive(id, accessContext, actor, adapters = {}) {
       { $set: { etapa: "Arquivado", status: "arquivado", concluidoEm: now, alerta: "Arquivado manualmente." } },
     );
     if (!update.modifiedCount) {
+      const concurrent = await loadProcess(process._id, accessContext);
+      if (concurrent.status === "arquivado" || concurrent.etapa === "Arquivado") return concurrent;
       throw new GenericError("O processo foi atualizado por outra operação. Reabra a fatura antes de continuar.", {
         statusCode: 409,
         code: "PROCESS_CONCURRENT_UPDATE",
