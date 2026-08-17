@@ -179,3 +179,29 @@ test("abertura da decisão não consome a API de anexos do Omie", () => {
   assert.match(decisionRoute, /attachmentsDeferred/);
   assert.match(frontend, /somente ao confirmar o envio, evitando consumo redundante/);
 });
+
+
+test("esteira exibe resumo financeiro, ações operacionais e arquiva ticket anterior da OS", () => {
+  const model = read("src/models/ProcessoFatura.js");
+  const webhook = read("src/services/webhookService.js");
+  const workflow = read("src/services/invoiceWorkflow.js");
+  const routes = read("src/routes/docCustom.js");
+  const ui = read("../frontend/central.ui.json");
+  const frontend = read("../frontend/src/main.tsx");
+  assert.match(model, /valorFatura/);
+  assert.match(model, /quantidadeServicos/);
+  assert.match(webhook, /hydrateProcessSummary/);
+  assert.match(webhook, /Arquivado automaticamente após nova entrada da OS/);
+  assert.doesNotMatch(webhook, /gatilhoId: trigger\._id,\n    codigoOs/);
+  assert.match(workflow, /item\.nValTot/);
+  assert.match(routes, /processos\/:id\/arquivar/);
+  assert.match(routes, /item\.nValTot/);
+  assert.match(ui, /"cardFields": \[/);
+  assert.match(ui, /"valorFatura"/);
+  assert.match(ui, /"quantidadeServicos"/);
+  assert.match(ui, /"id": "enviar-email"/);
+  assert.match(ui, /"id": "arquivar"/);
+  assert.doesNotMatch(ui, /"id": "reprocessar"/);
+  assert.doesNotMatch(frontend, /Confirmar e enviar fatura/);
+  assert.match(frontend, /botão de ação no rodapé/);
+});
