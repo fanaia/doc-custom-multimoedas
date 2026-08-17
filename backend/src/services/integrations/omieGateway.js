@@ -114,11 +114,15 @@ async function listarContasCorrentes(base, accessContext, options) {
     .filter((item) => Number.isFinite(item.codigo) && item.codigo > 0);
 }
 
+function attachmentExternalCode(pdf) {
+  const documentKey = crypto.createHash("sha256").update(pdf).digest("hex").slice(0, 16);
+  return `oon-${documentKey}`;
+}
+
 async function incluirPdf(base, accessContext, os, filename, pdf, options) {
   const zip = zipSingleFile(filename, pdf);
-  const documentKey = crypto.createHash("sha256").update(pdf).digest("hex").slice(0, 40);
   return call(base, accessContext, "geral/anexo/", "IncluirAnexo", {
-    cCodIntAnexo: `doc-custom-${documentKey}`,
+    cCodIntAnexo: attachmentExternalCode(pdf),
     cTabela: "ordem-servico",
     nId: Number(os.Cabecalho.nCodOS),
     cNomeArquivo: filename,
@@ -181,6 +185,7 @@ async function atualizarEtapa(base, accessContext, os, etapa, observacao, option
 }
 
 module.exports = {
+  attachmentExternalCode,
   atualizarEtapa,
   buildStageUpdate,
   call,
