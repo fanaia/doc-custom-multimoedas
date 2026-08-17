@@ -206,3 +206,23 @@ test("esteira exibe resumo financeiro, ações operacionais e arquiva ticket ant
   assert.doesNotMatch(frontend, /Confirmar e enviar fatura/);
   assert.match(frontend, /botão de ação no rodapé/);
 });
+
+
+test("esteira usa página operacional em vez do renderer técnico genérico", () => {
+  const routes = read("src/routes/docCustom.js");
+  const main = read("../frontend/src/main.tsx");
+  const page = main;
+  assert.match(routes, /processos-operacao/);
+  assert.match(routes, /populate\("baseOmieId", "nome codigo ambiente"\)/);
+  assert.match(main, /pipelines: ui\.pipelines\.filter\(\(pipeline\) => pipeline\.name !== "esteira-faturas"\)/);
+  assert.match(main, /path: "\/esteira-faturas".+component: "FaturasOperacionaisPage"/);
+  assert.match(page, /Faturas para decisão/);
+  assert.match(page, /Aguardando aprovação/);
+  assert.match(page, /Revisar fatura/);
+  assert.match(page, /Pronto para envio/);
+  assert.match(page, /Lista operacional/);
+  assert.match(page, />Aprovar</);
+  assert.match(page, />Reprovar</);
+  assert.match(page, />Arquivar</);
+  assert.doesNotMatch(page, /Mapeamento|Evento externo|Execução anterior/);
+});

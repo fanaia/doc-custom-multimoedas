@@ -115,8 +115,7 @@ defineRoutes("/api/doc-custom", (router) => {
   router.private.get("/integracoes/tickets", { permission: "audit.read" }, async (req, res) => {
     const tenantId = req.accessContext.tenantId;
     const filter = { tenantId };
-    if (["omie", "sendgrid"].includes(req.query.provider)) filter.provider = req.query.provider;
-    if (["processando", "sucesso", "falha"].includes(req.query.status)) filter.status = req.query.status;
+    const safeRegex = (value) => String(value || "").slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (req.query.baseOmieId) filter.baseOmieId = (await findScopedBase(req.query.baseOmieId, req.accessContext))._id;
     const tickets = await Model("IntegracaoTicket").find(filter).populate("baseOmieId", "nome codigo").sort({ iniciadoEm: -1 }).limit(250).lean();
     res.json({ tickets });
@@ -309,6 +308,27 @@ defineRoutes("/api/doc-custom", (router) => {
   });
   router.private.post("/bases/:id/webhook/rotacionar", { permission: "bases.manage", audit: { entidade: "BaseOmie", acao: "webhook-rotacionado" } }, async (req, res) => {
     res.json(await rotateWebhook(req.params.id, req.accessContext));
+  });
+
+  router.private.get("/processos-operacao", { permission: "process.read" }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const filter = { tenantId };
+    const safeRegex = (value) => String(value || "").slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (req.query.baseOmieId) filter.baseOmieId = req.query.baseOmieId;
+    if (req.query.etapa) filter.etapa = req.query.etapa;
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.os) filter.$or = [
+      { numeroOs: { $regex: safeRegex(req.query.os), $options: "i" } },
+      { codigoOs: { $regex: safeRegex(req.query.os), $options: "i" } },
+    ];
+    if (req.query.cliente) filter.clienteNome = { $regex: safeRegex(req.query.cliente), $options: "i" };
+    if (req.query.ativos === "true") filter.status = { $nin: ["arquivado"] };
+    const processos = await Model("ProcessoFatura").find(filter)
+      .populate("baseOmieId", "nome codigo ambiente")
+      .sort({ iniciadoEm: -1 })
+      .limit(300)
+      .lean();
+    res.json({ processos, total: processos.length });
   });
 
   router.private.post("/processos/:id/aprovar-processamento", { permission: "process.approve", audit: processAudit("processamento-aprovado") }, async (req, res) => {
