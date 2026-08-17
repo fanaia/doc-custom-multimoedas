@@ -7,6 +7,7 @@ const test = require("node:test");
 const { registry, scopedIdFilter } = require("@oondemand/oon-core-back");
 const { archivePreviousUnsentProcesses, archiveProcessesOutsideMappedStage, canonical, createProcess, isOsStageEvent, matchesAppKeyMask, normalizeWebhook } = require("../src/services/webhookService");
 const { assertOsContract, normalizeOs } = require("../src/services/invoiceVariables");
+const { isMappedProcessingStage } = require("../src/services/invoiceWorkflow");
 const { sanitize } = require("../src/services/sanitization");
 
 function loadModels() {
@@ -214,6 +215,14 @@ test("mudança para fora da etapa mapeada arquiva uma única vez o ticket não e
     Process.updateMany = originalUpdateMany;
     Event.insertMany = originalInsertMany;
   }
+});
+
+test("arquivamento só move a OS que ainda está na etapa de processamento mapeada", () => {
+  const mapping = { etapaEnvio: "20", etapaErro: "30" };
+  assert.equal(isMappedProcessingStage({ Cabecalho: { cEtapa: "20" } }, mapping), true);
+  assert.equal(isMappedProcessingStage({ Cabecalho: { cEtapa: "30" } }, mapping), false);
+  assert.equal(isMappedProcessingStage({ Cabecalho: {} }, mapping), false);
+  assert.equal(isMappedProcessingStage(null, mapping), false);
 });
 
 test("resposta parcial da Omie falha com campos compreensíveis e defaults seguros", () => {
