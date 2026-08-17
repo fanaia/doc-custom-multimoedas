@@ -399,7 +399,7 @@ defineRoutes("/api/doc-custom", (router) => {
 
   router.private.put("/processos/:id/envio/destinatarios", { permission: "process.send", audit: processAudit("destinatarios-atualizados") }, async (req, res) => {
     const invoiceProcess = await workflow.loadProcess(req.params.id, req.accessContext);
-    if (invoiceProcess.etapa !== "Enviar e-mail" || invoiceProcess.emailProviderId) {
+    if (!["Aprovar fatura", "Enviar e-mail"].includes(invoiceProcess.etapa) || invoiceProcess.emailProviderId) {
       throw new GenericError("Os destinatários só podem ser alterados antes da confirmação do envio.", { statusCode: 409 });
     }
     const recipients = normalizeRecipients(req.body || {});
@@ -420,7 +420,7 @@ defineRoutes("/api/doc-custom", (router) => {
       {
         _id: invoiceProcess._id,
         tenantId: req.accessContext.tenantId,
-        etapa: "Enviar e-mail",
+        etapa: { $in: ["Aprovar fatura", "Enviar e-mail"] },
         emailProviderId: { $in: [null, ""] },
       },
       { $set: { destinatariosEnvio: { configured: true, ...recipients, updatedAt, updatedBy: actor(req).userId } } },
