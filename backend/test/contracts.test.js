@@ -98,7 +98,13 @@ test("reentrega do webhook recupera processo idempotente e nunca acessa resultad
   const originalFind = Process.find;
   const originalUpdateMany = Process.updateMany;
   const originalInsertMany = Event.insertMany;
-  const existing = { _id: "507f1f77bcf86cd799439021", tenantId: "tenant-a" };
+  const existing = {
+    _id: "507f1f77bcf86cd799439021",
+    tenantId: "tenant-a",
+    htmlSnapshotPendente: "<html>invoice</html>",
+    templateSnapshot: { document: { codigo: "invoice" } },
+    variaveisSnapshot: { os: { Cabecalho: { nCodOS: 4951204645 } } },
+  };
   try {
     Process.findOne = () => ({ select: async () => existing });
     Process.find = () => ({ select: async () => [] });
