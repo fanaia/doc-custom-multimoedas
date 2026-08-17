@@ -252,3 +252,22 @@ test("destinatários podem ser revisados antes da aprovação e há configuraç�
   assert.match(frontend, /Cópias internas das faturas/);
   assert.match(frontend, /"Aprovar processamento", "Aprovar fatura", "Enviar e-mail"/);
 });
+
+
+test("edição da moeda não reenvia o histórico controlado pela execução", () => {
+  const ui = JSON.parse(read("../frontend/central.ui.json"));
+  const currency = ui.collections.find((collection) => collection.model === "Moeda");
+  const historyGroup = currency.detailModal.tabs[0].groups.find((group) => group.label === "Última cotação");
+  assert.deepEqual(
+    historyGroup.fields.map((field) => [field.field, field.readonly]),
+    [
+      ["ultimoValorValido", true],
+      ["ultimaReferenciaEm", true],
+      ["ultimaConsultaEm", true],
+      ["ultimaOrigem", true],
+    ],
+  );
+  const conversionGroup = currency.detailModal.tabs[0].groups.find((group) => group.label === "Conversão");
+  assert.ok(conversionGroup.fields.includes("fonte"));
+  assert.ok(conversionGroup.fields.includes("valorFixo"));
+});
