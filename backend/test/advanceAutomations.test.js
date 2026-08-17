@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildStageUpdate, retryDelayMs } = require("../src/services/integrations/omieGateway");
+const { buildStageUpdate, omieDueDateD1, retryDelayMs } = require("../src/services/integrations/omieGateway");
 const root = path.resolve(__dirname, "..");
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
@@ -12,13 +12,22 @@ test("monta alteração da OS com adiantamento conforme contrato legado do Omie"
     Cabecalho: { nCodOS: 123, dDtPrevisao: "17/08/2026", cCodParc: "999" },
     Observacoes: { cObsOS: "Anterior" },
     Parcelas: [{ nParcela: 1, nValor: 100 }, { nParcela: 2, nValor: 200 }],
-  }, "50", "Invoice enviada.", { enabled: true, contaCorrenteCodigo: 456, categoriaCodigo: "1.01.02" });
+  }, "50", "Invoice enviada.", {
+    enabled: true,
+    contaCorrenteCodigo: 456,
+    categoriaCodigo: "1.01.02",
+    referenceDate: new Date("2026-08-17T15:00:00-03:00"),
+  });
   assert.equal(payload.Cabecalho.cEtapa, "50");
   assert.equal(payload.Cabecalho.cCodParc, "999");
-  assert.equal(payload.Cabecalho.dDtPrevisao, "17/08/2026");
+  assert.equal(payload.Cabecalho.dDtPrevisao, "18/08/2026");
   assert.deepEqual(payload.Parcelas.map((item) => [item.parcela_adiantamento, item.categoria_adiantamento, item.conta_corrente_adiantamento]), [
     ["S", "1.01.02", 456], ["S", "1.01.02", 456],
   ]);
+});
+
+test("calcula D+1 no fuso de São Paulo inclusive na virada do mês", () => {
+  assert.equal(omieDueDateD1(new Date("2026-08-31T23:30:00-03:00")), "01/09/2026");
 });
 
 test("adiantamento exige parcelas na OS", () => {
