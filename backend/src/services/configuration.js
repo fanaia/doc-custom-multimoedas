@@ -1,5 +1,13 @@
 "use strict";
 
+const AUTOMATION_DEFINITIONS = [
+  { code: "automacao-aprovacao-automatica", label: "Aprovação automática" },
+  { code: "automacao-revisao-automatica", label: "Revisão automática" },
+  { code: "automacao-envio-automatico", label: "Envio automático" },
+  { code: "automacao-reprocessar-falha", label: "Reprocessar falha automático" },
+];
+const AUTOMATION_CODES = new Set(AUTOMATION_DEFINITIONS.map((item) => item.code));
+
 const { registry } = require("@oondemand/oon-core-back");
 
 function parseValue(item) {
@@ -34,9 +42,14 @@ async function resolvedConfigurations(tenantId, baseOmieId) {
   }));
 }
 
+async function automationSettings(tenantId, baseOmieId) {
+  const configurations = await resolvedConfigurations(tenantId, baseOmieId);
+  return Object.fromEntries(AUTOMATION_DEFINITIONS.map(({ code }) => [code, Boolean(getConfiguration(configurations, code, false))]));
+}
+
 function getConfiguration(configurations, code, fallback = undefined) {
   const item = configurations.find((candidate) => candidate.codigo === code);
   return item ? (item.valorTipado ?? parseValue(item)) : fallback;
 }
 
-module.exports = { getConfiguration, parseValue, resolvedConfigurations };
+module.exports = { AUTOMATION_CODES, AUTOMATION_DEFINITIONS, automationSettings, getConfiguration, parseValue, resolvedConfigurations };
