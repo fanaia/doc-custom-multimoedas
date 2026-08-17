@@ -36,4 +36,12 @@ function normalizeRecipients({ to = [], cc = [], bcc = [] } = {}) {
   };
 }
 
-module.exports = { isValidEmail, normalizeRecipients, splitEmails };
+function withInternalCopies(recipients, internalRecipients = []) {
+  return normalizeRecipients({
+    to: recipients?.to || [],
+    cc: [recipients?.cc || [], internalRecipients],
+    bcc: recipients?.bcc || [],
+  });
+}
+
+module.exports = { isValidEmail, normalizeRecipients, splitEmails, withInternalCopies };
