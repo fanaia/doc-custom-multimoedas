@@ -8,12 +8,26 @@ const { zipSingleFile } = require("../zipFile");
 
 const BASE_URL = "https://app.omie.com.br/api/v1";
 
+function retryDelayMs(error) {
+  if (Number(error?.retryAfterMs) > 0) return Number(error.retryAfterMs);
+  const message = String(error?.message || "");
+  const seconds = message.match(/aguarde\s+(\d+)\s+segundos?/i)?.[1];
+  if (seconds && /REDUNDANT|consumo redundante/i.test(message)) return Math.max(1, Number(seconds)) * 1000;
+  return /REDUNDANT|consumo redundante/i.test(message) ? 60_000 : 0;
+}
+
 function externalError(call, response, data) {
   const message = data?.faultstring || data?.message || `HTTP ${response.status}`;
-  return new GenericError(`Omie ${call}: ${String(message).slice(0, 500)}`, {
+  const error = new GenericError(`Omie ${call}: ${String(message).slice(0, 500)}`, {
     statusCode: response.status >= 500 ? 502 : 422,
     code: "OMIE_API_ERROR",
   });
+  const retryAfterMs = retryDelayMs(error);
+  if (retryAfterMs) {
+    error.retryAfterMs = retryAfterMs;
+    error.retryable = true;
+  }
+  return error;
 }
 
 async function call(baseOrId, accessContext, endpoint, callName, param, options = {}) {
@@ -221,5 +235,6 @@ module.exports = {
   listarEtapas,
   obterAnexo,
   parseServiceStages,
+  retryDelayMs,
   testConnection,
 };
