@@ -37,11 +37,12 @@ function normalizeRecipients({ to = [], cc = [], bcc = [] } = {}) {
 }
 
 function withInternalCopies(recipients, internalRecipients = []) {
-  return normalizeRecipients({
+  const merged = normalizeRecipients({
     to: recipients?.to || [],
     cc: [recipients?.cc || [], internalRecipients],
     bcc: recipients?.bcc || [],
   });
+  return { ...merged, invalid: [...new Set([...(recipients?.invalid || []), ...merged.invalid])] };
 }
 
 module.exports = { isValidEmail, normalizeRecipients, splitEmails, withInternalCopies };
