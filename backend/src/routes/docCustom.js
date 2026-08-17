@@ -7,6 +7,7 @@ const {
 } = require("@oondemand/oon-core-back");
 const { configureCredentials, findScopedBase, getWebhookAccess, rotateWebhook } = require("../services/baseCredentials");
 const { getConfiguration } = require("../services/configuration");
+const { sendEmail } = require("../services/emailSender");
 const gateway = require("../services/integrations/omieGateway");
 const workflow = require("../services/invoiceWorkflow");
 const { importMandatoryTemplate } = require("../services/mandatoryTemplate");
@@ -140,6 +141,30 @@ defineRoutes("/api/doc-custom", (router) => {
       await Model("SendGridConfig").updateOne({ tenantId }, { $set: { statusConexao: "erro", ultimaConexaoEm: new Date(), ultimoErroConexao: String(error.message || "Falha de autenticação.").slice(0, 500) } });
       throw error;
     }
+  });
+
+  router.private.post("/integracoes/sendgrid/enviar-teste", { permission: "settings.manage", audit: { entidade: "SendGridConfig", acao: "email-teste-enviado" } }, async (req, res) => {
+    const tenantId = req.accessContext.tenantId;
+    const recipients = normalizeRecipients({ to: req.body?.destinatario });
+    if (recipients.invalid.length || recipients.to.length !== 1) {
+      throw new GenericError("Informe um único e-mail destinatário válido.", {
+        statusCode: 422,
+        code: "EMAIL_RECIPIENT_INVALID",
+      });
+    }
+    const credential = await sendgrid.credentials(tenantId);
+    const accepted = await sendEmail({
+      from: credential.from,
+      to: recipients.to,
+      subject: "Teste de integração SendGrid — Doc Custom Multimoedas",
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.5;color:#172033"><h2 style="color:#0077b6">Integração SendGrid validada</h2><p>Este e-mail confirma que a Central Doc Custom Multimoedas consegue enviar mensagens usando a configuração deste tenant.</p><p><strong>Enviado em:</strong> ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p></div>`,
+      attachments: [],
+    }, { apiKey: credential.apiKey, tenantId });
+    res.json({
+      message: `E-mail de teste enviado para ${recipients.to[0]}.`,
+      providerId: accepted.id,
+      acceptedAt: accepted.acceptedAt,
+    });
   });
 
   async function validateMappingInput(input, tenantId, triggerId) {
