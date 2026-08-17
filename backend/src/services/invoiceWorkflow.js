@@ -23,6 +23,10 @@ function internalAccess(tenantId) {
   return { tenantId: String(tenantId), tenancyModel: "multi_tenant", userId: "system" };
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function loadProcess(id, accessContext, options = {}) {
   let query = Model("ProcessoFatura").findOne(scopedIdFilter(registry.getModel("ProcessoFatura"), id, accessContext));
   if (options.secrets) query = query.select("+tenantId +idempotencyKey +lockToken");
@@ -327,7 +331,8 @@ async function finalizeOmieStatus(process, actor, adapters = {}) {
     if (!account || !category) throw new GenericError("Configuração de adiantamento inválida para a Base Omie do processo.", { statusCode: 422, code: "OMIE_ADVANCE_CONFIGURATION_REQUIRED" });
     adiantamento = { enabled: true, contaCorrenteCodigo: account.codigo, categoriaCodigo: category.codigo };
   }
-  await (adapters.gateway || gateway).atualizarEtapa(base, accessContext, process.codigoOs, mapping.etapaSucesso, note, { ...adapters, adiantamento });
+  const osForUpdate = variables.os?.Cabecalho ? variables.os : process.codigoOs;
+  await (adapters.gateway || gateway).atualizarEtapa(base, accessContext, osForUpdate, mapping.etapaSucesso, note, { ...adapters, adiantamento });
   const completedAt = new Date();
   await Model("ProcessoFatura").updateOne({ _id: process._id, tenantId: process.tenantId }, {
     $set: { etapa: "Concluido", status: "concluido", statusOmieAtualizadoEm: completedAt, concluidoEm: completedAt },
@@ -422,6 +427,17 @@ async function failProcess(process, stage, error, actor, adapters = {}) {
     $set: { etapa: "Falha", status: "falha", falhaNaEtapa: stage, ultimoErro: summary },
   });
   await recordEvent(process, { stage, result: "falha", error: summary, userId: actor.userId });
+  const retryAfterMs = gateway.retryDelayMs(error);
+  if (retryAfterMs) {
+    await recordEvent(process, {
+      stage: "Aguardar retentativa",
+      result: "iniciado",
+      userId: actor.userId,
+      message: `Omie solicitou aguardar ${Math.ceil(retryAfterMs / 1000)} segundos; a OS não será movida para erro durante esse intervalo.`,
+      details: { retryAfterMs, falhaNaEtapa: stage },
+    });
+    return;
+  }
   try {
     const accessContext = internalAccess(process.tenantId);
     const { base, mapping } = await loadTriggerContext(process, accessContext);
@@ -530,6 +546,8 @@ async function runConfiguredAutomations(id, accessContext, adapters = {}) {
     } catch (error) {
       const current = await loadProcess(id, accessContext);
       if (current.etapa !== "Falha" || !settings["automacao-reprocessar-falha"]) throw error;
+      const retryAfterMs = gateway.retryDelayMs(error);
+      if (retryAfterMs) await (adapters.wait || wait)(retryAfterMs);
     }
   }
   return loadProcess(id, accessContext);
