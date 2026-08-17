@@ -106,7 +106,7 @@ defineRoutes("/api/doc-custom", (router) => {
       Model("CategoriaOmie").find({ tenantId }).select("baseOmieId codigo descricao status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("ContaCorrenteOmie").find({ tenantId }).select("baseOmieId codigo descricao banco status sincronizadaEm").populate("baseOmieId", "nome codigo").sort({ codigo: 1 }).lean(),
       Model("Gatilho").find({ tenantId }).populate("templateDocumentoId templateAssuntoId templateCorpoId", "codigo descricao tipo versao contratoVariaveis").sort({ descricao: 1 }).lean(),
-      Model("GatilhoBase").find({ tenantId }).populate("baseOmieId", "nome codigo").sort({ createdAt: 1 }).lean(),
+      Model("GatilhoBase").find({ tenantId }).populate("baseOmieId", "nome codigo").populate("contaCorrenteAdiantamentoId", "codigo descricao banco").populate("categoriaAdiantamentoId", "codigo descricao").sort({ createdAt: 1 }).lean(),
       sendgrid.getPublic(tenantId),
     ]);
     res.json({ bases, imagens, templates, documentos, configuracoes, etapas, categorias, contasCorrentes, gatilhos, mapeamentos, sendgridConfig });
