@@ -29,6 +29,10 @@ function processAudit(action) {
   return { entidade: "ProcessoFatura", acao: action };
 }
 
+function scheduleProcessAutomations(id, accessContext) {
+  setImmediate(() => workflow.runConfiguredAutomations(id, accessContext).catch((error) => console.error("Falha na automação do processo", String(error?.message || error))));
+}
+
 const DEFAULT_CURRENCIES = [
   { codigo: "USD", simbolo: "$", valorContingencia: 5.03 },
   { codigo: "EUR", simbolo: "€", valorContingencia: 5.9 },
@@ -341,10 +345,14 @@ defineRoutes("/api/doc-custom", (router) => {
   });
 
   router.private.post("/processos/:id/aprovar-processamento", { permission: "process.approve", audit: processAudit("processamento-aprovado") }, async (req, res) => {
-    res.json({ processo: await workflow.approveProcessing(req.params.id, req.accessContext, actor(req)) });
+    const processo = await workflow.approveProcessing(req.params.id, req.accessContext, actor(req));
+    scheduleProcessAutomations(req.params.id, req.accessContext);
+    res.json({ processo });
   });
   router.private.post("/processos/:id/aprovar-fatura", { permission: "process.approve", audit: processAudit("fatura-aprovada") }, async (req, res) => {
-    res.json({ processo: await workflow.approveInvoice(req.params.id, req.accessContext, actor(req)) });
+    const processo = await workflow.approveInvoice(req.params.id, req.accessContext, actor(req));
+    scheduleProcessAutomations(req.params.id, req.accessContext);
+    res.json({ processo });
   });
   router.private.post("/processos/:id/rejeitar", { permission: "process.approve", audit: processAudit("rejeitado") }, async (req, res) => {
     res.json({ processo: await workflow.reject(req.params.id, req.accessContext, actor(req), req.body?.motivo) });
@@ -356,7 +364,9 @@ defineRoutes("/api/doc-custom", (router) => {
     res.json({ processo: await workflow.archive(req.params.id, req.accessContext, actor(req)) });
   });
   router.private.post("/processos/:id/tentar-novamente", { permission: "process.retry", audit: processAudit("retentativa") }, async (req, res) => {
-    res.json({ processo: await workflow.retry(req.params.id, req.accessContext, actor(req)) });
+    const processo = await workflow.retry(req.params.id, req.accessContext, actor(req));
+    scheduleProcessAutomations(req.params.id, req.accessContext);
+    res.json({ processo });
   });
   router.private.post("/processos/:id/reprocessar", { permission: "process.reprocess", audit: processAudit("reprocessado") }, async (req, res) => {
     res.status(201).json({ processo: await workflow.reprocess(req.params.id, req.accessContext, actor(req)) });
