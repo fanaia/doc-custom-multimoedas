@@ -22,3 +22,14 @@ test("mantém os perfis de negócio junto ao perfil de compatibilidade", () => {
     assert.ok(roleCodes.includes(expected), `perfil obrigatório ausente: ${expected}`);
   }
 });
+
+test("aprovador e operador podem revisar destinatários sem compartilhar a permissão de envio", () => {
+  const approver = app.rbac.roles.find((role) => role.code === "approver");
+  const operator = app.rbac.roles.find((role) => role.code === "operator");
+
+  assert.ok(app.rbac.permissions.includes("process.recipients"));
+  assert.ok(approver.permissions.includes("process.recipients"));
+  assert.equal(approver.permissions.includes("process.send"), false);
+  assert.ok(operator.permissions.includes("process.recipients"));
+  assert.ok(operator.permissions.includes("process.send"));
+});
