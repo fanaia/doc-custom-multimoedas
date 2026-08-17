@@ -162,7 +162,8 @@ test("modal da esteira prioriza a decisão e confirma destinatários antes do en
   assert.match(routes, /\["Aprovar fatura", "Enviar e-mail"\]\.includes\(invoiceProcess\.etapa\)/);
   assert.match(routes, /etapa: \{ \$in: \["Aprovar fatura", "Enviar e-mail"\] \}/);
   assert.match(frontend, /const canEdit = \["Aprovar fatura", "Enviar e-mail"\]\.includes\(operation\.stage\)/);
-  assert.match(frontend, /const canSend = operation\.stage === "Enviar e-mail"/);
+  assert.doesNotMatch(frontend, /const canSend = operation\.stage === "Enviar e-mail"/);
+  assert.match(ui, /"id": "enviar-email"/);
   assert.match(frontend, /Salvar destinatários/);
 });
 
