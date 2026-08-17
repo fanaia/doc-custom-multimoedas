@@ -226,3 +226,17 @@ test("esteira usa página operacional em vez do renderer técnico genérico", ()
   assert.match(page, />Arquivar</);
   assert.doesNotMatch(page, /Mapeamento|Evento externo|Execução anterior/);
 });
+
+
+test("modal operacional preserva decisão, processo e visualização do PDF", () => {
+  const frontend = read("../frontend/src/main.tsx");
+  assert.match(frontend, /modalTab/);
+  assert.match(frontend, /label:"Decisão"/);
+  assert.match(frontend, /label:"Processo"/);
+  assert.match(frontend, /label:"PDF"/);
+  assert.match(frontend, /InvoiceDecisionPanel parent=\{selected\}/);
+  assert.match(frontend, /ProcessPdfViewer parent=\{selected\}/);
+  assert.match(frontend, /Ordem de serviço/);
+  assert.match(frontend, /Falha na etapa/);
+  assert.match(frontend, /<footer/);
+});
