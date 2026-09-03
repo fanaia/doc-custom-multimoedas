@@ -25,6 +25,10 @@ Falhas ficam na etapa `Falha`, com etapa de origem, tentativa, duração e erro 
 
 Os módulos nativos `integrations` e `omie` permanecem desabilitados no OonCore 0.4.7 porque seus modelos/rotas técnicos não têm isolamento por tenant em deployment compartilhado. A integração de OS desta Central usa models e rotas tenant-scoped próprios. O gap do Core está rastreado em [oondemand/oon-platform#106](https://github.com/oondemand/oon-platform/issues/106).
 
+## Publicação em Dev
+
+O push para `main` publica automaticamente no ambiente Dev. Para testar uma feature antes do merge, abra **Actions → publish-dev → Run workflow** e selecione a branch desejada. A execução manual atualiza o mesmo Dev compartilhado do App; releases de feature branch não podem ser promovidas até a publicação correspondente pela branch padrão.
+
 ## Configuração local
 
 ```bash
