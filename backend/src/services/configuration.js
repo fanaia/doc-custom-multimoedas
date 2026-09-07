@@ -28,7 +28,7 @@ async function resolvedConfigurations(tenantId, baseOmieId) {
   const resolved = new Map();
   items.filter((item) => !item.baseOmieId).forEach((item) => resolved.set(item.codigo, item));
   items.filter((item) => String(item.baseOmieId) === String(baseOmieId)).forEach((item) => resolved.set(item.codigo, item));
-  return [...resolved.values()].map((item) => ({
+  const legacy = [...resolved.values()].map((item) => ({
     codigo: item.codigo,
     descricao: item.descricao,
     tipo: item.tipo,
@@ -40,6 +40,16 @@ async function resolvedConfigurations(tenantId, baseOmieId) {
     status: item.status,
     origem: item.baseOmieId ? "base" : "global",
   }));
+  const { FIELDS, resolvedTypedConfigurations } = require("./europartnerSettings");
+  const typedCodes = new Set(Object.values(FIELDS).map(([code]) => code));
+  const typed = await resolvedTypedConfigurations(tenantId, baseOmieId);
+  const migratedCodes = new Set(typed.map(item => item.codigo));
+  if (legacy.some(item => typedCodes.has(item.codigo) && (!migratedCodes.has(item.codigo)
+      || (item.baseOmieId && !typed.some(candidate => candidate.codigo === item.codigo && String(candidate.baseOmieId) === String(item.baseOmieId)))))) {
+    const { GenericError } = require("@oondemand/oon-core-back");
+    throw new GenericError("Migre as características existentes para o model Europartner antes de executar a esteira.", { statusCode: 409, code: "EUROPARTNER_SETTINGS_MIGRATION_REQUIRED" });
+  }
+  return [...legacy.filter(item => !typedCodes.has(item.codigo)), ...typed];
 }
 
 function automationSettingsFromConfigurations(configurations = []) {

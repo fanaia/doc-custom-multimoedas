@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { startCentralFromManifest, useOonApi } from "@oondemand/oon-core-front";
+import { defineOonApp, startOonApp, useOonApi } from "@oondemand/oon-core-front";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import app from "../../central.app.json";
 import ui from "../central.ui.json";
@@ -396,14 +396,22 @@ function ProcessPdfViewer({ parent, record }: { parent?: Item; record?: Item }) 
 const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "EtapaOmie", "CategoriaOmie", "ContaCorrenteOmie", "Gatilho"]);
 const uiManifest = {
   ...ui,
-  collections: ui.collections.filter((collection) => !replaced.has(collection.model)),
+  collections: [...ui.collections.filter((collection) => !replaced.has(collection.model)), {
+    model: "EuropartnerSettings", mode: "dynamic", path: "/configuracoes", label: "Características Europartner", section: "Configurações",
+    list: { columns: ["baseOmieId", "razaoSocial", "cidade", "status"] },
+    detailModal: { enabled: true, titleField: "razaoSocial", tabs: [
+      { id: "empresa", label: "Empresa", type: "form", groups: [{ label: "Padrão ou base específica", fields: ["baseOmieId", "status"] }, { label: "Emissor", fields: ["razaoSocial", "enderecoLinha1", "enderecoLinha2", "cidade"] }] },
+      { id: "banco", label: "Pagamento", type: "form", groups: [{ label: "Dados bancários", fields: ["banco", "agencia", "contaCorrente", "swift", "iban"] }] },
+      { id: "email", label: "E-mail", type: "form", groups: [{ label: "Remetente e cópias", fields: ["emailFrom", "emailFromNome", "emailCc", "emailCopia", "emailBcc", "destinatariosInternos"] }] },
+      { id: "automacao", label: "Automação", type: "form", groups: [{ label: "Etapas automáticas", fields: ["aprovacaoAutomatica", "revisaoAutomatica", "envioAutomatico", "reprocessarFalha"] }] },
+    ] },
+  }],
   pipelines: ui.pipelines.filter((pipeline) => pipeline.name !== "esteira-faturas"),
   documents: [],
   pages: [
     ...ui.pages,
     { id: "esteira-faturas-operacional", path: "/esteira-faturas", label: "Esteira de faturas", title: "Faturas para decisão", section: "Operação", component: "FaturasOperacionaisPage", order: 1, permissions: ["process.read"] },
     { id: "bases-omie-operacao", path: "/bases-omie", label: "Bases Omie", title: "Bases Omie", section: "Configurações", component: "BasesOmiePage", order: 10, permissions: ["bases.read"] },
-    { id: "configuracoes-operacao", path: "/configuracoes", label: "Configurações", title: "Configurações", section: "Configurações", component: "ConfiguracoesPage", order: 11, permissions: ["settings.read"] },
     { id: "integracoes-operacao", path: "/integracoes", label: "Integrações", title: "Integrações", section: "Configurações", component: "IntegracoesPage", order: 12, permissions: ["settings.read"] },
     { id: "etapas-omie-operacao", path: "/etapas-omie", label: "Etapas Omie", title: "Etapas Omie", section: "Configurações", component: "EtapasOmiePage", order: 12, hidden: true, permissions: ["bases.read"] },
     { id: "categorias-omie-operacao", path: "/categorias-omie", label: "Categorias Omie", title: "Categorias Omie", section: "Configurações", component: "CategoriasOmiePage", order: 13, hidden: true, permissions: ["bases.read"] },
@@ -416,9 +424,10 @@ const uiManifest = {
   ],
 };
 
-startCentralFromManifest({ app, ui: uiManifest as Parameters<typeof startCentralFromManifest>[0]["ui"] }, {
-  apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
-  meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
-  devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
-  customComponents: { FaturasOperacionaisPage, BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, InvoiceDecisionPanel, ProcessPdfViewer },
-});
+startOonApp(defineOonApp({
+  app: { id: app.id, name: app.name, title: app.name, kind: "member-central", tenancyModel: "single_tenant", capabilities: app.capabilities },
+  api: { baseUrl: import.meta.env.VITE_API_URL ?? "/api", meusAppsUrl: import.meta.env.DEV ? undefined : import.meta.env.VITE_MEUS_APPS_URL },
+  runtimeMode: import.meta.env.DEV ? "local" : "platform",
+  ui: uiManifest as any,
+  components: { pageComponents: { FaturasOperacionaisPage, BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, InvoiceDecisionPanel, ProcessPdfViewer } },
+}));

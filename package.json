@@ -4,14 +4,16 @@
   "private": true,
   "description": "Central Oon Doc Custom Multimoedas gerada com create-central-oon.",
   "scripts": {
-    "ooncore:docs": "create-central-oon docs --sync",
-    "ooncore:docs:check": "create-central-oon docs --check",
+    "ooncore:docs": "create-central-oon docs sync",
+    "ooncore:docs:check": "create-central-oon docs check",
     "ooncore:conformance": "create-central-oon conformance",
     "check": "npm run ooncore:docs:check && npm run ooncore:conformance && npm run test --prefix backend && npm run build --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
-    "dev:frontend": "npm run dev --prefix frontend"
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev": "create-central-oon dev",
+    "test": "npm test --prefix backend"
   },
   "devDependencies": {
-    "@oondemand/create-central-oon": "0.4.5"
+    "@oondemand/create-central-oon": "0.6.6"
   }
 }

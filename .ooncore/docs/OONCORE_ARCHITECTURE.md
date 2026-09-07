@@ -45,6 +45,6 @@ Cada Central começa como um mini-monolito de negócio: pequeno, coeso, isolado 
 - Permissões são decididas no backend.
 - Integrações são tratadas como conectores, mappings, triggers e esteiras de integração.
 
-## Objetivo do Codex
+## Objetivo dos Agents
 
-O Codex deve acelerar a construção da Central usando a arquitetura existente. O objetivo não é gerar um app genérico, mas sim completar a camada de domínio com segurança e aderência ao Core.
+O Agent deve acelerar a construção da Central usando a arquitetura existente. O objetivo não é gerar um app genérico, mas completar a camada de domínio com segurança e aderência ao Core.

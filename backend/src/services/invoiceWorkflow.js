@@ -20,7 +20,7 @@ function Model(name) {
 }
 
 function internalAccess(tenantId) {
-  return { tenantId: String(tenantId), tenancyModel: "multi_tenant", userId: "system" };
+  return { tenantId: String(tenantId), tenancyModel: "single_tenant", userId: "system" };
 }
 
 function wait(ms) {

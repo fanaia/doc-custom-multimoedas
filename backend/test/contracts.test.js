@@ -32,6 +32,7 @@ test("todas as models de negócio têm escopo e campo de tenant", () => {
       "ContaCorrenteOmie",
       "CotacaoMoeda",
       "EtapaOmie",
+      "EuropartnerSettings",
       "EventoProcesso",
       "Gatilho",
       "GatilhoBase",

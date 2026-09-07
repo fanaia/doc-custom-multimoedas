@@ -6,7 +6,7 @@ Ele complementa:
 
 - `central.app.json`: identidade, módulos e capabilities da aplicação;
 - `backend/central.domain.json`: models, campos, fórmulas do próprio registro e validações locais;
-- `frontend/central.ui.json`: projeção visual, coleções, esteiras e ações exibidas.
+- `frontend/src/app`: composição code-first de coleções, esteiras e ações exibidas.
 
 O manifesto de processos é carregado **depois** do domínio. Por isso, toda model e todo campo citados precisam existir em `central.domain.json`.
 
@@ -51,16 +51,16 @@ O runtime não executa JavaScript, `eval`, nomes de funções ou módulos inform
       }
     ],
     "lockedFieldsByStage": {
-      "Enviado para Omie": ["valor", "projetoId", "projetoItemId"],
+      "Enviado para pagamento": ["valor", "projetoId", "projetoItemId"],
       "Pagamento Ok": ["valor", "projetoId", "projetoItemId"]
     },
     "lockedMessage": "Os dados de negócio ficam bloqueados nesta etapa.",
     "onEnter": [
       {
-        "stage": "Enviado para Omie",
+        "stage": "Enviado para pagamento",
         "set": {
           "statusTrabalho": "Trabalhando",
-          "omieStatusIntegracao": "Pendente"
+          "statusPagamento": "Pendente"
         }
       }
     ],
@@ -69,7 +69,7 @@ O runtime não executa JavaScript, `eval`, nomes de funções ou módulos inform
         "when": {
           "op": "eq",
           "args": [
-            { "field": "omieLiquidado" },
+            { "field": "pagamentoLiquidado" },
             { "value": true }
           ]
         },

@@ -1,21 +1,19 @@
 {
   "$schema": "./node_modules/@oondemand/create-central-oon/schemas/central.app.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "doc-custom-multimoedas",
-  "name": "Doc Custom Multimoedas",
+  "name": "Europartner Faturas",
   "slug": "doc-custom-multimoedas",
   "appKind": "member-central",
-  "tenancyModel": "multi_tenant",
+  "tenancyModel": "single_tenant",
   "availability": "licensed",
   "accessMode": "explicit_users",
   "authorizationMode": "rbac",
-  "deploymentMode": "shared",
+  "deploymentMode": "dedicated",
   "modules": {
     "collections": true,
     "documents": true,
     "pipelines": true,
-    "integrations": false,
-    "omie": false,
     "assistants": false,
     "currencies": true
   },
@@ -30,8 +28,8 @@
   ],
   "compatibility": {
     "core": {
-      "minVersion": "0.3.45",
-      "maxVersionExclusive": "0.5.0"
+      "minVersion": "0.6.6",
+      "maxVersionExclusive": "0.7.0"
     }
   },
   "activation": {
@@ -68,26 +66,43 @@
         "name": "Administrador",
         "description": "Administra usuários, acessos e todas as operações da Central.",
         "admin": true,
-        "permissions": ["*"]
+        "permissions": [
+          "*"
+        ]
       },
       {
         "code": "developer",
         "name": "Desenvolvedor",
         "description": "Compatibilidade com usuários ativados antes da definição dos perfis de negócio.",
         "admin": true,
-        "permissions": ["*"]
+        "permissions": [
+          "*"
+        ]
       },
       {
         "code": "approver",
         "name": "Aprovador",
         "description": "Consulta processos e aprova ou rejeita o processamento e a fatura.",
-        "permissions": ["dashboard.read", "process.read", "process.approve", "process.recipients", "audit.read"]
+        "permissions": [
+          "dashboard.read",
+          "process.read",
+          "process.approve",
+          "process.recipients",
+          "audit.read"
+        ]
       },
       {
         "code": "operator",
         "name": "Operador",
         "description": "Consulta processos, confirma o envio e executa retentativas permitidas.",
-        "permissions": ["dashboard.read", "process.read", "process.recipients", "process.send", "process.retry", "audit.read"]
+        "permissions": [
+          "dashboard.read",
+          "process.read",
+          "process.recipients",
+          "process.send",
+          "process.retry",
+          "audit.read"
+        ]
       },
       {
         "code": "viewer",
