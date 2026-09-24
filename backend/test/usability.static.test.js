@@ -214,8 +214,8 @@ test("esteira usa página operacional em vez do renderer técnico genérico", ()
   const page = main;
   assert.match(routes, /processos-operacao/);
   assert.match(routes, /populate\("baseOmieId", "nome codigo ambiente"\)/);
-  assert.match(main, /pipelines: ui\.pipelines\.filter\(\(pipeline\) => pipeline\.name !== "esteira-faturas"\)/);
-  assert.match(main, /path: "\/esteira-faturas".+component: "FaturasOperacionaisPage"/);
+  assert.match(main, /path: "\/esteira-faturas", element: <FaturasOperacionaisPage/);
+  assert.doesNotMatch(main, /type: "pipeline"/);
   assert.match(page, /Faturas para decisão/);
   assert.match(page, /Aguardando aprovação/);
   assert.match(page, /Revisar fatura/);

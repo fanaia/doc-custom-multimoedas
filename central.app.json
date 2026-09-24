@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@oondemand/create-central-oon/schemas/central.app.schema.json",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "doc-custom-multimoedas",
   "name": "Doc Custom Multimoedas",
   "slug": "doc-custom-multimoedas",
@@ -14,8 +14,6 @@
     "collections": true,
     "documents": true,
     "pipelines": true,
-    "integrations": false,
-    "omie": false,
     "assistants": false,
     "currencies": true
   },
@@ -30,8 +28,8 @@
   ],
   "compatibility": {
     "core": {
-      "minVersion": "0.3.45",
-      "maxVersionExclusive": "0.5.0"
+      "minVersion": "0.7.0",
+      "maxVersionExclusive": "0.8.0"
     }
   },
   "activation": {

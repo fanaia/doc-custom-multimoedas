@@ -20,10 +20,10 @@ Falhas ficam na etapa `Falha`, com etapa de origem, tentativa, duração e erro 
 - Bases Omie, configurações, moedas, histórico, templates, imagens, gatilhos, processos, PDFs e eventos são isolados.
 - App Key, App Secret e token de webhook usam AES-256-GCM em repouso; só a máscara da App Key aparece na metadata/CRUD.
 - O webhook resolve a base por hash de token aleatório e ainda valida a App Key recebida.
-- O frontend é integralmente declarativo: home, painel, cadastros, filtros, esteira, detalhe, ações condicionais e auditoria são definidos em `frontend/central.ui.json`.
+- O frontend usa `defineOonApp`/`startOonApp`: rotas operacionais e navegação ficam em `frontend/src/main.tsx`; as coleções e configurações de UX são transportadas de `frontend/central.ui.json` para as views do Core. A esteira de decisão continua na página operacional própria.
 - Shell, autenticação, RBAC, CRUD, metadata e auditoria HTTP continuam pertencendo ao OonCore.
 
-Os módulos nativos `integrations` e `omie` permanecem desabilitados no OonCore 0.4.7 porque seus modelos/rotas técnicos não têm isolamento por tenant em deployment compartilhado. A integração de OS desta Central usa models e rotas tenant-scoped próprios. O gap do Core está rastreado em [oondemand/oon-platform#106](https://github.com/oondemand/oon-platform/issues/106).
+Os módulos `integrations` e `omie` não fazem parte do manifesto v2 do OonCore 0.7.2. A integração de OS desta Central usa models e rotas tenant-scoped próprios.
 
 ## Publicação em Dev
 
@@ -32,7 +32,9 @@ O push para `main` publica automaticamente no ambiente Dev. Para testar uma feat
 ## Configuração local
 
 ```bash
-npm install
+npm ci
+npm ci --prefix backend
+npm ci --prefix frontend
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
@@ -40,7 +42,7 @@ cp frontend/.env.example frontend/.env
 Configure no backend:
 
 - `MONGO_URI`;
-- `DEV_TOKEN` e `DEV_TENANT_ID` para desenvolvimento;
+- `OON_RUNTIME_MODE=local` para a sessão automática do OonCore;
 - `DOC_CUSTOM_CREDENTIALS_ENCRYPTION_KEY` com pelo menos 32 caracteres;
 - `PUBLIC_APP_URL` para formar URLs de webhook;
 - `SENDGRID_API_KEY`.
@@ -111,7 +113,7 @@ O contrato exposto contém somente `os`, `cliente`, metadados de `baseOmie`, `mo
 npm run check
 ```
 
-O gate valida documentação OonCore, conformidade arquitetural, 18 testes de backend e o build de produção do frontend. Os testes cobrem o EJS obrigatório, isolamento das models, criptografia, webhook canônico, PTAX/histórico/contingência, anexos, limites pré-envio, PDF, ZIP Omie, destinatários e sanitização.
+O gate valida documentação OonCore, conformidade arquitetural, testes de backend, tipos TypeScript e o build de produção do frontend. Os testes cobrem o EJS obrigatório, isolamento das models, criptografia, webhook canônico, PTAX/histórico/contingência, anexos, limites pré-envio, PDF, ZIP Omie, destinatários e sanitização.
 
 Comandos individuais:
 

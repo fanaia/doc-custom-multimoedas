@@ -16,7 +16,6 @@ backend/
     ├── mappings/
     ├── documents/
     ├── pipelines/
-    ├── integrations/
     ├── routes/
     ├── controllers/
     └── services/
@@ -24,7 +23,7 @@ backend/
 
 ## Models
 
-Use models para declarar entidades de negócio. Cada model deve ser pequeno, com nomes claros e campos compatíveis com as telas e integrações.
+Use models para declarar entidades de negócio. Cada model deve ser pequeno, com nomes claros e campos compatíveis com as telas e processos.
 
 Boas práticas:
 

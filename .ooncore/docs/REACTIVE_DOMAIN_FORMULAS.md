@@ -2,7 +2,7 @@
 
 A partir do contrato declarativo de domínio, campos com `computed` são recalculados imediatamente nos formulários padrão do `@oondemand/oon-core-front`.
 
-A Central não precisa repetir a fórmula em `central.ui.json` nem criar componentes React específicos. A declaração continua existindo uma única vez no `central.domain.json` do backend.
+O App não precisa repetir a fórmula no frontend nem criar componentes React específicos. A declaração continua existindo uma única vez no `central.domain.json` do backend.
 
 ## Fluxo
 
@@ -21,7 +21,7 @@ A Central não precisa repetir a fórmula em `central.ui.json` nem criar compone
 - formulário principal em modal com abas (`CoreTabbedDetail`);
 - criação e edição;
 - formulários derivados integralmente da metadata;
-- formulários com overrides de apresentação no `central.ui.json`, desde que a model continue sendo carregada pela metadata do Core.
+- formulários com apresentação local, desde que a model continue sendo carregada pela metadata do Core.
 
 ## Exemplo
 

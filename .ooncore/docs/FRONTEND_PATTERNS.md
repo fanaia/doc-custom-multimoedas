@@ -1,27 +1,28 @@
 # Padrões Frontend
 
-O frontend da Central deve ser declarativo. Shell, providers, rotas, menu, datagrid, formulários, documentos, esteiras, modais de detalhe e grids relacionados pertencem ao `@oondemand/oon-core-front`.
+O frontend do App é code-first. Shell, providers e guards pertencem ao
+`@oondemand/oon-core-front`; rotas, navegação, páginas, componentes, layouts e
+temas são compostos localmente com as APIs públicas do Core.
 
-Para a lista completa de opções do manifesto, use `FRONTEND_MANIFEST_REFERENCE.md`.
+Para o contrato completo, use `FRONTEND_CODE_FIRST.md`.
 Para UX avançada com abas e itens relacionados, use também `ADVANCED_UX_PATTERNS.md` e `DETAIL_MODAL_AND_RELATED_GRIDS.md`.
 
 ## Estrutura esperada
 
 ```txt
 frontend/
-├── central.ui.json
 └── src/
     ├── main.tsx
-    ├── collections/
-    ├── documents/
-    ├── pipelines/
-    ├── dashboards/
-    └── overrides/
+    ├── app/{app,routes,navigation,theme}.tsx
+    ├── pages/
+    ├── components/
+    ├── features/
+    └── layouts/
 ```
 
-## central.ui.json
+## Composição
 
-Use `central.ui.json` como entrada principal para declarar:
+Use o objeto criado por `defineOonApp` para compor:
 
 - menu;
 - coleções;
@@ -43,11 +44,8 @@ Use `central.ui.json` como entrada principal para declarar:
 - edição inline;
 - ações por linha.
 
-## Manifesto v1 e v2
-
-- Manifesto sem `schemaVersion` mantém compatibilidade v1.
-- Manifesto com `schemaVersion: 2` habilita composição por `layout`, `navigation`, `pages`, `blocks`, coleções avançadas e componentes declarativos.
-- Componentes React não devem ser serializados no JSON; use chaves e registre os componentes no `registry` em TypeScript.
+Views e blocos declarativos continuam opcionais para telas simples, dentro do
+objeto code-first. Componentes React são registrados diretamente em TypeScript.
 
 ## Padrão de tela operacional
 

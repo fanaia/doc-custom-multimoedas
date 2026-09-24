@@ -22,7 +22,33 @@ Use o RBAC do Core para:
 - proteger rotas;
 - permitir evolução de permissões sem reconstruir telas.
 
-## Checklist de segurança para Codex
+## Catálogo canônico de perfis
+
+```http
+GET /core/role-catalog
+```
+
+Resposta:
+
+```json
+{
+  "schemaVersion": 1,
+  "appCode": "central-compras",
+  "enabled": true,
+  "roles": [
+    {
+      "code": "viewer",
+      "name": "Consulta",
+      "description": "Somente leitura.",
+      "admin": false
+    }
+  ]
+}
+```
+
+Use esse endpoint para montar seletores e validar grants por App. Não mantenha códigos de perfil paralelos no frontend ou no Control Plane. O consumidor deve validar versão e App, bloquear redirects e destinos de rede privados, revalidar o perfil no backend e tratar catálogo inválido como indisponível. O endpoint usa cache público de cinco minutos e nunca expõe a lista de permissões; a autorização efetiva continua no App.
+
+## Checklist de segurança para Agents
 
 Antes de concluir uma alteração, confirme:
 

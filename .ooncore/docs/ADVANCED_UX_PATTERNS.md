@@ -1,6 +1,7 @@
 # ADVANCED_UX_PATTERNS.md — UX Avançada Declarativa no OonCore
 
-Este documento orienta Codex e outras IAs a usarem o máximo de recursos do OonCore antes de criar telas customizadas. O foco é transformar padrões recorrentes de sistemas operacionais em **manifesto declarativo** e componentes reutilizáveis.
+Este documento orienta Agents a usarem os componentes públicos do OonCore e a
+composição code-first antes de recriar padrões operacionais.
 
 ## Objetivo
 
@@ -22,7 +23,7 @@ Caso de referência: `OrcamentoProjeto -> OrcamentoItem -> Pagamento`.
 
 Antes de criar uma página React customizada, verifique se a necessidade pode ser resolvida por:
 
-1. `collections[]` no `central.ui.json`.
+1. Views `collection` em `defineOonApp({ ui })`.
 2. `list.filters` e `list.rowActions`.
 3. `detailModal.tabs`.
 4. `form.groups`.
@@ -161,7 +162,7 @@ Use componente customizado apenas quando:
 
 Mesmo nesses casos, prefira plugar o componente em uma aba `customComponent` da modal, e não substituir a página inteira.
 
-## Checklist para Codex
+## Checklist para Agents
 
 Antes de criar tela customizada:
 

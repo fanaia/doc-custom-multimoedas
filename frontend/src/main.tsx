@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { startCentralFromManifest, useOonApi } from "@oondemand/oon-core-front";
+import { defineOonApp, startOonApp, useOonApi } from "@oondemand/oon-core-front";
+import { defineOonNavigation, defineOonRoutes } from "@oondemand/oon-core-front/routing";
+import { CoreDashboard } from "@oondemand/oon-core-front/ui";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import app from "../../central.app.json";
 import ui from "../central.ui.json";
@@ -200,7 +202,6 @@ function TicketsIntegracaoPage(){
 function DocumentosPage() { const query=useCatalogs(); return <div><Header title="Documentos gerados" description="Documentos criados automaticamente pelos templates e pela esteira de processamento."/><div style={card}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th align="left">Arquivo</th><th align="left">Template</th><th align="left">Tamanho</th><th align="left">Gerado em</th></tr></thead><tbody>{query.data?.documentos.map(d=><tr key={d._id}><td>{d.nomeArquivo}</td><td>{d.templateCodigo} v{d.templateVersao}</td><td>{(Number(d.tamanho)/1024).toFixed(1)} KB</td><td>{new Date(d.geradoEm).toLocaleString("pt-BR")}</td></tr>)}</tbody></table></div></div> }
 
 
-type Item = Record<string, any> & { _id: string };
 const btn: React.CSSProperties = {border:0,borderRadius:8,padding:"8px 11px",background:"#0077b6",color:"#fff",cursor:"pointer",fontWeight:650};
 const outline: React.CSSProperties = {...btn,background:"#fff",color:"#344054",border:"1px solid #d0d5dd"};
 const columns = [
@@ -394,31 +395,51 @@ function ProcessPdfViewer({ parent, record }: { parent?: Item; record?: Item }) 
 }
 
 const replaced = new Set(["BaseOmie", "Imagem", "Template", "Configuracao", "EtapaOmie", "CategoriaOmie", "ContaCorrenteOmie", "Gatilho"]);
-const uiManifest = {
-  ...ui,
-  collections: ui.collections.filter((collection) => !replaced.has(collection.model)),
-  pipelines: ui.pipelines.filter((pipeline) => pipeline.name !== "esteira-faturas"),
-  documents: [],
-  pages: [
-    ...ui.pages,
-    { id: "esteira-faturas-operacional", path: "/esteira-faturas", label: "Esteira de faturas", title: "Faturas para decisão", section: "Operação", component: "FaturasOperacionaisPage", order: 1, permissions: ["process.read"] },
-    { id: "bases-omie-operacao", path: "/bases-omie", label: "Bases Omie", title: "Bases Omie", section: "Configurações", component: "BasesOmiePage", order: 10, permissions: ["bases.read"] },
-    { id: "configuracoes-operacao", path: "/configuracoes", label: "Configurações", title: "Configurações", section: "Configurações", component: "ConfiguracoesPage", order: 11, permissions: ["settings.read"] },
-    { id: "integracoes-operacao", path: "/integracoes", label: "Integrações", title: "Integrações", section: "Configurações", component: "IntegracoesPage", order: 12, permissions: ["settings.read"] },
-    { id: "etapas-omie-operacao", path: "/etapas-omie", label: "Etapas Omie", title: "Etapas Omie", section: "Configurações", component: "EtapasOmiePage", order: 12, hidden: true, permissions: ["bases.read"] },
-    { id: "categorias-omie-operacao", path: "/categorias-omie", label: "Categorias Omie", title: "Categorias Omie", section: "Configurações", component: "CategoriasOmiePage", order: 13, hidden: true, permissions: ["bases.read"] },
-    { id: "contas-correntes-omie-operacao", path: "/contas-correntes-omie", label: "Contas correntes Omie", title: "Contas correntes Omie", section: "Configurações", component: "ContasCorrentesOmiePage", order: 14, hidden: true, permissions: ["bases.read"] },
-    { id: "templates-operacao", path: "/templates", label: "Templates EJS", title: "Templates EJS", section: "Documentos", component: "TemplatesPage", order: 20, permissions: ["templates.read"] },
-    { id: "gatilhos-operacao", path: "/gatilhos", label: "Gatilhos", title: "Gatilhos", section: "Documentos", component: "GatilhosPage", order: 21, permissions: ["triggers.read"] },
-    { id: "imagens-operacao", path: "/imagens", label: "Imagens", title: "Imagens", section: "Documentos", component: "ImagensPage", order: 30, permissions: ["templates.read"] },
-    { id: "documentos-operacao", path: "/documentos-gerados", label: "Documentos gerados", title: "Documentos gerados", section: "Documentos", component: "DocumentosPage", order: 40, permissions: ["process.read"] },
-    { id: "tickets-integracao-operacao", path: "/configuracoes/integracao-omie/tickets", label: "Tickets de Integração", title: "Tickets de Integração", section: "Auditoria", component: "TicketsIntegracaoPage", order: 800, permissions: ["audit.read"] },
-  ],
-};
+function HomePage() {
+  return <div><Header title="Doc Custom Multimoedas" description="Acompanhe a OS da entrada pelo webhook Omie até a aprovação, envio e conclusão." />
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(250px,1fr))", gap: 14 }}>
+      {[["Esteira de faturas", "/esteira-faturas", "Aprove, envie e retome processos."], ["Bases Omie", "/bases-omie", "Gerencie empresas, conexão e webhook."], ["Gatilhos e templates", "/gatilhos", "Configure documentos e destinatários."]].map(([label, to, description]) =>
+        <Link key={to} to={to} style={{ ...card, textDecoration: "none", color: "#075985" }}><strong>{label}</strong><p>{description}</p></Link>) }
+    </div></div>;
+}
 
-startCentralFromManifest({ app, ui: uiManifest as Parameters<typeof startCentralFromManifest>[0]["ui"] }, {
-  apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:4000",
-  meusAppsUrl: import.meta.env.VITE_MEUS_APPS_URL,
-  devToken: import.meta.env.DEV ? (import.meta.env.VITE_DEV_TOKEN ?? "dev-local") : undefined,
-  customComponents: { FaturasOperacionaisPage, BasesOmiePage, CategoriasOmiePage, ConfiguracoesPage, ContasCorrentesOmiePage, EtapasOmiePage, GatilhosPage, ImagensPage, IntegracoesPage, TemplatesPage, TicketsIntegracaoPage, DocumentosPage, InvoiceDecisionPanel, ProcessPdfViewer },
-});
+const collections = ui.collections.filter((collection) => !replaced.has(collection.model));
+const routes = defineOonRoutes([
+  { path: "/", element: <HomePage />, permissions: ["dashboard.read"] },
+  { path: "/painel", element: <CoreDashboard widgets={ui.dashboards[0].widgets.map((widget) => ({ ...widget, kind: widget.kind as "count" | "groupCount" }))} />, permissions: ["dashboard.read"] },
+  { path: "/esteira-faturas", element: <FaturasOperacionaisPage />, permissions: ["process.read"] },
+  { path: "/bases-omie", element: <BasesOmiePage />, permissions: ["bases.read"] },
+  { path: "/configuracoes", element: <ConfiguracoesPage />, permissions: ["settings.read"] },
+  { path: "/integracoes", element: <IntegracoesPage />, permissions: ["settings.read"] },
+  { path: "/etapas-omie", element: <EtapasOmiePage />, permissions: ["bases.read"] },
+  { path: "/categorias-omie", element: <CategoriasOmiePage />, permissions: ["bases.read"] },
+  { path: "/contas-correntes-omie", element: <ContasCorrentesOmiePage />, permissions: ["bases.read"] },
+  { path: "/templates", element: <TemplatesPage />, permissions: ["templates.read"] },
+  { path: "/gatilhos", element: <GatilhosPage />, permissions: ["triggers.read"] },
+  { path: "/imagens", element: <ImagensPage />, permissions: ["templates.read"] },
+  { path: "/documentos-gerados", element: <DocumentosPage />, permissions: ["process.read"] },
+  { path: "/configuracoes/integracao-omie/tickets", element: <TicketsIntegracaoPage />, permissions: ["audit.read"] },
+]);
+const navigation = defineOonNavigation([
+  { label: "Início", href: "/" },
+  { label: "Esteira de faturas", href: "/esteira-faturas" },
+  { label: "Painel", href: "/painel" },
+  { label: "Bases Omie", href: "/bases-omie" },
+  { label: "Configurações", href: "/configuracoes" },
+  { label: "Integrações", href: "/integracoes" },
+  { label: "Moedas", href: "/moedas" },
+  { label: "Templates EJS", href: "/templates" },
+  { label: "Gatilhos", href: "/gatilhos" },
+  { label: "Imagens", href: "/imagens" },
+  { label: "Documentos gerados", href: "/documentos-gerados" },
+  { label: "Histórico de processos", href: "/processos-faturas" },
+  { label: "Auditoria de processos", href: "/auditoria-processos" },
+]);
+
+startOonApp(defineOonApp({
+  app: { id: app.id, name: app.name },
+  api: { baseUrl: import.meta.env.VITE_API_URL || "" },
+  routes: [...routes],
+  navigation: { mode: "manual", items: [...navigation] },
+  ui: { views: collections.map((collection) => ({ ...collection, type: "collection" as const, mode: "dynamic" as const, list: collection.list as any, detailModal: collection.detailModal as any, relations: collection.relations as any })) },
+}));
