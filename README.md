@@ -23,7 +23,7 @@ Falhas ficam na etapa `Falha`, com etapa de origem, tentativa, duração e erro 
 - O frontend é integralmente declarativo: home, painel, cadastros, filtros, esteira, detalhe, ações condicionais e auditoria são definidos em `frontend/central.ui.json`.
 - Shell, autenticação, RBAC, CRUD, metadata e auditoria HTTP continuam pertencendo ao OonCore.
 
-Os módulos nativos `integrations` e `omie` permanecem desabilitados no OonCore 0.4.7 porque seus modelos/rotas técnicos não têm isolamento por tenant em deployment compartilhado. A integração de OS desta Central usa models e rotas tenant-scoped próprios. O gap do Core está rastreado em [oondemand/oon-platform#106](https://github.com/oondemand/oon-platform/issues/106).
+Os módulos `integrations` e `omie` não fazem parte do manifesto v2 do OonCore 0.7.2. A integração de OS desta Central usa models e rotas tenant-scoped próprios.
 
 ## Publicação em Dev
 
@@ -40,7 +40,7 @@ cp frontend/.env.example frontend/.env
 Configure no backend:
 
 - `MONGO_URI`;
-- `DEV_TOKEN` e `DEV_TENANT_ID` para desenvolvimento;
+- `OON_RUNTIME_MODE=local` para a sessão automática do OonCore;
 - `DOC_CUSTOM_CREDENTIALS_ENCRYPTION_KEY` com pelo menos 32 caracteres;
 - `PUBLIC_APP_URL` para formar URLs de webhook;
 - `SENDGRID_API_KEY`.
